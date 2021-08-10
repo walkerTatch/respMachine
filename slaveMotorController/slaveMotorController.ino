@@ -1,7 +1,7 @@
 /*
    Function for running the stepper motor controller on one slave arduino.
    This arduino (Nano) is responsible for nothing except executing the motor controls & reporting the motor position
-   This arduino will communicate with another arduino over a wired serial connection
+   This arduino will communicate with another arduino over an I2C connection
 */
 
 /*
@@ -11,8 +11,6 @@
 */
 #include <FlexyStepper.h>
 #include <Wire.h>
-#include "MegunoLink.h"
-#include "CommandHandler.h"
 
 /*
  * **********************
@@ -20,7 +18,6 @@
  * **********************
 */
 FlexyStepper stepper;
-CommandHandler<> SerialCommandHandler;
 
 /*
  * ****************
@@ -39,19 +36,44 @@ double moveSpeed;
 double moveAccel;
 double currentPos;
 // Physical inputs
+int eStopPin = 2;
+
+// Wire transmission stuff
+byte* currPosPtr = (byte*)&currentPos;
+byte* targetPosPtr = (byte*)&targetPos;
+byte* moveSpeedPtr = (byte*)&moveSpeed;
+byte* moveAccelPtr = (byte*)&moveAccel;
 
 /*
- * *************************
-   Command Handler Functions
- * *************************
+ * *********************
+   Wire Receive Function
+ * *********************
 */
-// Function to request a move
-void Cmd_RequestMove(CommandParameter &Parameters) {
-  Serial.println("Move Requested");
-  targetPos = Parameters.NextParameterAsDouble();
-  moveSpeed = Parameters.NextParameterAsDouble();
-  moveAccel = Parameters.NextParameterAsDouble();
-  moveRequested = true;
+// Function to run when sent a new value
+void moverequested(int numBytes) {
+  //Serial.println("Move Requested");
+  for (byte i = 0; i < sizeof(double); i++) {
+    targetPosPtr[i] = Wire.read();
+  }
+  for (byte i = 0; i < sizeof(double); i++) {
+    moveSpeedPtr[i] = Wire.read();
+  }
+  for (byte i = 0; i < sizeof(double); i++) {
+    moveAccelPtr[i] = Wire.read();
+  }
+  moveRequested = true; 
+  //Serial.println(targetPos);
+  //Serial.println(moveSpeed);
+  //Serial.println(moveAccel);
+}
+
+// Function to run when a value is requested
+void sendcurrentmotorpos() {
+  //Serial.println("Data Requested");
+  for (byte i = 0; i < sizeof(double); i++) {
+    Wire.write(currPosPtr[i]);
+  }
+  //Serial.println(currentPos);
 }
 
 /*
@@ -60,28 +82,27 @@ void Cmd_RequestMove(CommandParameter &Parameters) {
  * ******************************
 */
 void setup() {
-  // Serial communication
-  Serial.begin(57600);
-  // Wait for Serial communication to start
-  while (!Serial) {
-    ;
-  }
-  Serial.println("Hello...");
+  // Serial debugging
+  //Serial.begin(9600);
+  
+  // I2C communication
+  //Serial.println("Starting Wire Communication");
+  Wire.begin(9);
+  Wire.setClock(400000);
+  Wire.onReceive(moverequested);
+  Wire.onRequest(sendcurrentmotorpos);
 
   // Stepper stuff
-  Serial.println("Initializing Stepper");
+  //Serial.println("Initializing Stepper");
   stepper.connectToPins(MOTOR_STEP_PIN, MOTOR_DIRECTION_PIN);
   stepper.setStepsPerRevolution(800);
 
-  // Command handler stuff
-  Serial.println("Initializing Command Handler");
-  SerialCommandHandler.AddCommand(F("moveRequested"), Cmd_RequestMove);
+  // eStop Interrupt
+  pinMode(eStopPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(eStopPin), eStopRoutine, RISING);
 }
 
 void loop() {
-  // Process commands from the other arduino
-  Serial.println("Reading Messages");
-  SerialCommandHandler.Process();
   // If we have a move requested, do it!
   if (moveRequested) {
     // Set up the move first
@@ -93,28 +114,21 @@ void loop() {
       moveDone = stepper.processMovement();
       currentPos = stepper.getCurrentPositionInRevolutions();
       // Stop if we are done
-      if (moveDone) {
-        moveexitfun();
+      if (moveDone || eStop) {
+        // Reset all of our flags to zero
+        moveRequested = false;
+        moveDone = false;
+        eStop = false;
       }
     }
   }
-  delay(1000);
 }
 
 /*
- * ***********************************
-   Definition of Helper Functions etc.
- * ***********************************
+ * ******************
+   Interrupt Function
+ * ******************
 */
-// Function for reporting motor position
-void reportmotorposition() {
-  Serial.println((String)"{TIMEPLOT|DATA|StepperPos|T|" + stepper.getCurrentPositionInRevolutions() + "}");
-}
-
-// Function called when a move is finished
-void moveexitfun() {
-  // Reset all of our flags to zero
-  moveRequested = false;
-  moveDone = false;
-  eStop = false;
+void eStopRoutine(){
+  eStop = true;
 }

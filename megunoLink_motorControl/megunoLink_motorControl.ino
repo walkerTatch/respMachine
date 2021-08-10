@@ -8,11 +8,11 @@
   Include Libraries
 **************************************************************************************************************
 */
-#include <SpeedyStepper.h>
 #include "MegunoLink.h"
 #include "CommandHandler.h"
 #include <Thread.h>
 #include <ThreadController.h>
+#include <Wire.h>
 
 /*
 **************************************************************************************************************
@@ -23,11 +23,10 @@
 CommandHandler<> SerialCommandHandler;
 InterfacePanel MyPanel;
 TimePlot myPlot;
-// Stepper
-SpeedyStepper stepper;
 // Thread controller
 ThreadController motorControlThread = ThreadController();
-Thread posReportThread =  Thread();
+Thread getMotorPosThread =  Thread();
+Thread reportMotorPosThread = Thread();
 Thread stateMachineThread =  Thread();
 
 /*
@@ -35,9 +34,6 @@ Thread stateMachineThread =  Thread();
   Parameter Definitions
 **************************************************************************************************************
 */
-// Pin Definitions
-const int MOTOR_STEP_PIN = 3;
-const int MOTOR_DIRECTION_PIN = 4;
 // Button press events
 bool fwdRevToggle = false;
 bool onOffToggle = false;
@@ -52,12 +48,20 @@ bool movedone = true;
 double moveAmount = 0;
 double moveSpeed = 0;
 double moveAccel = 0;
+double currentPosition = 0;
 double targetPosition = 0;
 bool eStop = false;
 bool forward = true;
 // Misc
 int stdbyWait = 0;
 int timeNow = 0;
+// Wire Transmission Stuff
+byte* currPosPtr = (byte*)&currentPosition;
+byte* targetPosPtr = (byte*)&targetPosition;
+byte* moveSpeedPtr = (byte*)&moveSpeed;
+byte* moveAccelPtr = (byte*)&moveAccel;
+// Physical Items
+int eStopPin = 10;
 
 /*
 **************************************************************************************************************
@@ -118,8 +122,40 @@ void runstatemachine() {
 void reportmotorposition() {
   // Send current motor position
   if (state == 2) {
-    Serial.println((String)"{TIMEPLOT|DATA|StepperPos|T|" + stepper.getCurrentPositionInRevolutions() + "}");
+    myPlot.SendData(F("stepperPos"),currentPosition);
   }
+}
+
+/*
+**************************************************************************************************************
+  Wire Functions -- Send/Receive from Slave Motor Controller Arduino
+**************************************************************************************************************
+*/
+// Request a number from the slave arduino
+void getpacketfromslave() {
+  Wire.requestFrom(9,4);
+  int ii = 0;
+  while (Wire.available() > 0) {
+    currPosPtr[ii] = Wire.read();
+    ii++;
+  }
+  // Serial.println("Got packet from slave");
+}
+// Send all of the necessary parameters as bytes
+void sendpackettoslave() {
+  Wire.beginTransmission(9);
+  for (byte i = 0; i < sizeof(double); i++) {
+    Wire.write(targetPosPtr[i]);
+  }
+  for (byte i = 0; i < sizeof(double); i++) {
+    Wire.write(moveSpeedPtr[i]);
+  }
+  for (byte i = 0; i < sizeof(double); i++) {
+    Wire.write(moveAccelPtr[i]);
+  }
+  byte stat = Wire.endTransmission(9);
+  // Serial.print(stat);
+  // Serial.println("Sent packet to Slave");
 }
 
 /*
@@ -129,6 +165,9 @@ void reportmotorposition() {
 */
 // Setup function
 void setup() {
+  // Setup a wire connection
+  Wire.begin();
+  Wire.setClock(400000);
   // Establish Serial Connection
   Serial.begin(9600);
   Serial.println("Initializing Motor Control....\n");
@@ -136,12 +175,15 @@ void setup() {
   // Setup Thread Controller
   // Configure Individual Threads
   stateMachineThread.onRun(runstatemachine);
-  stateMachineThread.setInterval(1);
-  posReportThread.onRun(reportmotorposition);
-  posReportThread.setInterval(100);
+  stateMachineThread.setInterval(0);
+  getMotorPosThread.onRun(getpacketfromslave);
+  getMotorPosThread.setInterval(200);
+  reportMotorPosThread.onRun(reportmotorposition);
+  reportMotorPosThread.setInterval(200);
   // Add Individual Threads to Thread Controller
   motorControlThread.add(&stateMachineThread);
-  motorControlThread.add(&posReportThread);
+  motorControlThread.add(&getMotorPosThread);
+  motorControlThread.add(&reportMotorPosThread);
 
   // Setup Meguno Commands
   SerialCommandHandler.AddCommand(F("startMoveButton"), Cmd_StartMove);
@@ -149,15 +191,13 @@ void setup() {
   SerialCommandHandler.AddCommand(F("changeDir"), Cmd_ChangeDir);
   SerialCommandHandler.AddCommand(F("toggleOnOff"), Cmd_ToggleOnOff);
 
-  // Setup Stepper Motor
-  stepper.connectToPins(MOTOR_STEP_PIN, MOTOR_DIRECTION_PIN);
-  stepper.setStepsPerRevolution(800);
-  stepper.setSpeedInRevolutionsPerSecond(1.0);
-  stepper.setAccelerationInRevolutionsPerSecondPerSecond(1.0);
-
   // Set Meguno Indicators to Default State
   MyPanel.SetIndicator(F("forwardIndicator"), forward); // indicate whatever the state of "forward" is
   MyPanel.SetIndicator(F("motorOnIndicator"), false);  // indicate 'off'
+
+  // Physical Pins
+  pinMode(eStopPin,OUTPUT);
+  digitalWrite(eStopPin,LOW);
 }
 
 // Looping function
@@ -208,12 +248,10 @@ void stdbyFun() {
     if (!forward) {
       moveAmount = moveAmount * -1;
     }
-    targetPosition = stepper.getCurrentPositionInRevolutions() + moveAmount;
-    stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
-    stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
-    stepper.setupMoveInRevolutions(targetPosition);
-    state = 2;
     myPlot.Clear("stepperPos");
+    targetPosition = currentPosition + moveAmount;
+    sendpackettoslave();
+    state = 2;
   }
 
   // Standby timer -- send a command every once and a while to let the user know the machine is working
@@ -226,25 +264,25 @@ void stdbyFun() {
 
 // Function when moving
 void movFun() {
-  // Keep moving if we are not done
+  // Check for eStop
   if (eStop){
-    state = 1;
+    digitalWrite(eStopPin,HIGH);
+    delay(1);
+    digitalWrite(eStopPin,LOW);
     movExitFun();
   }
-  if (!stepper.motionComplete()) {
-    movedone = stepper.processMovement();
-    // Stop if we are done
-    if (movedone) {
-     movExitFun();
-    }
+  
+  // Keep moving if we are not done
+  if (currentPosition == targetPosition) {
+    movExitFun();
   }
 }
 
-void movExitFun(){
-   // Change state and process commands which were sent during the move
-      state = 1;
-      SerialCommandHandler.Process();
-      moveRequested = false;
-      fwdRevToggle = false;
-      eStop = false;
+void movExitFun() {
+  // Change state and process commands which were sent during the move
+  state = 1;
+  SerialCommandHandler.Process();
+  moveRequested = false;
+  fwdRevToggle = false;
+  eStop = false;
 }

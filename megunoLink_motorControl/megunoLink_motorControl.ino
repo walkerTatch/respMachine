@@ -96,7 +96,9 @@ void Cmd_ChangeDir(CommandParameter &Parameters) {
 */
 // Function for state machine thread
 void runstatemachine() {
-  // State machine always runs
+  // Read serial commands
+  SerialCommandHandler.Process();
+  // Switch Case for State Machine
   switch (state) {
     // Forward case
     case 0:
@@ -115,7 +117,9 @@ void runstatemachine() {
 // Function for reporting motor position
 void reportmotorposition() {
   // Send current motor position
-  Serial.println((String)"{TIMEPLOT|DATA|StepperPos|T|" + stepper.getCurrentPositionInRevolutions() + "}");
+  if (state == 2) {
+    Serial.println((String)"{TIMEPLOT|DATA|StepperPos|T|" + stepper.getCurrentPositionInRevolutions() + "}");
+  }
 }
 
 /*
@@ -132,9 +136,9 @@ void setup() {
   // Setup Thread Controller
   // Configure Individual Threads
   stateMachineThread.onRun(runstatemachine);
-  stateMachineThread.setInterval(100);
+  stateMachineThread.setInterval(1);
   posReportThread.onRun(reportmotorposition);
-  posReportThread.setInterval(1000);
+  posReportThread.setInterval(100);
   // Add Individual Threads to Thread Controller
   motorControlThread.add(&stateMachineThread);
   motorControlThread.add(&posReportThread);
@@ -167,15 +171,14 @@ void loop() {
 */
 // Function for the off mode -- do nothing except read commands
 void offFun() {
-  SerialCommandHandler.Process();
   // If the on/off button is pressed, go to standby state
   if (onOffToggle) {
     state = 1;
     onOffToggle = !onOffToggle;
     MyPanel.SetIndicator(F("motorOnIndicator"), true);  // indicate 'on'
   }
-  // Reset button presses, button presses not allowed during movement
-  SerialCommandHandler.Process();
+
+  // Reset button presses besides on/off switch
   moveRequested = false;
   fwdRevToggle = false;
   eStop = false;
@@ -183,7 +186,6 @@ void offFun() {
 
 // Function for the standby mode
 void stdbyFun() {
-  SerialCommandHandler.Process();
   // If the on/off button is pressed, go to off state
   if (onOffToggle) {
     state = 0;
@@ -211,6 +213,7 @@ void stdbyFun() {
     stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
     stepper.setupMoveInRevolutions(targetPosition);
     state = 2;
+    myPlot.Clear("stepperPos");
   }
 
   // Standby timer -- send a command every once and a while to let the user know the machine is working
@@ -223,34 +226,25 @@ void stdbyFun() {
 
 // Function when moving
 void movFun() {
-  SerialCommandHandler.Process();
-  // If the on/off button is pressed, go to off state
-  if (onOffToggle) {
-    state = 0;
-    onOffToggle = !onOffToggle;
-    MyPanel.SetIndicator(F("motorOnIndicator"), false);  // indicate 'off'
-    return;
+  // Keep moving if we are not done
+  if (eStop){
+    state = 1;
+    movExitFun();
   }
-
-  // Came into the state with a move requested -- do it unless we say stop
-  if (moveRequested) {
-    // While loop for movement
-    while (!stepper.motionComplete()) {
-      movedone = stepper.processMovement();
-      // Check if a stop was requested
-      //      SerialCommandHandler.Process();
-      //      if (eStop) {
-      //        stepper.setupStop();
-      //      }
-      // Stop if we are done
-      if (movedone) {
-        state = 1;
-      }
+  if (!stepper.motionComplete()) {
+    movedone = stepper.processMovement();
+    // Stop if we are done
+    if (movedone) {
+     movExitFun();
     }
   }
-  // Reset button presses, button presses not allowed during movement
-  SerialCommandHandler.Process();
-  moveRequested = false;
-  fwdRevToggle = false;
-  eStop = false;
+}
+
+void movExitFun(){
+   // Change state and process commands which were sent during the move
+      state = 1;
+      SerialCommandHandler.Process();
+      moveRequested = false;
+      fwdRevToggle = false;
+      eStop = false;
 }

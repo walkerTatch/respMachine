@@ -3,21 +3,41 @@
 // Walker Nelson
 // 2021.7.26
 
-// Setup Libraries
+/*
+**************************************************************************************************************
+  Include Libraries
+**************************************************************************************************************
+*/
 #include <SpeedyStepper.h>
 #include "MegunoLink.h"
 #include "CommandHandler.h"
+#include <Thread.h>
+#include <ThreadController.h>
 
-// Setup library objects
+/*
+**************************************************************************************************************
+  Library Object Definitions
+**************************************************************************************************************
+*/
+// Meguno Stuff
 CommandHandler<> SerialCommandHandler;
-SpeedyStepper stepper;
 InterfacePanel MyPanel;
+TimePlot myPlot;
+// Stepper
+SpeedyStepper stepper;
+// Thread controller
+ThreadController motorControlThread = ThreadController();
+Thread posReportThread =  Thread();
+Thread stateMachineThread =  Thread();
 
+/*
+**************************************************************************************************************
+  Parameter Definitions
+**************************************************************************************************************
+*/
 // Pin Definitions
 const int MOTOR_STEP_PIN = 3;
 const int MOTOR_DIRECTION_PIN = 4;
-
-// Parameter Definitions
 // Button press events
 bool fwdRevToggle = false;
 bool onOffToggle = false;
@@ -39,7 +59,12 @@ bool forward = true;
 int stdbyWait = 0;
 int timeNow = 0;
 
-// Define functions for buttons
+/*
+**************************************************************************************************************
+  Meguno Button Functions
+**************************************************************************************************************
+*/
+// Start move button
 void Cmd_StartMove(CommandParameter &Parameters) {
   Serial.println("Move Requested");
   moveAmount = Parameters.NextParameterAsDouble();
@@ -47,48 +72,30 @@ void Cmd_StartMove(CommandParameter &Parameters) {
   moveAccel = Parameters.NextParameterAsDouble();
   moveRequested = true;
 }
-
+// Stop move button
 void Cmd_StopMove(CommandParameter &Parameters) {
   Serial.println("Estop Command Received");
   eStop = true;
 }
-
+// On/off button
 void Cmd_ToggleOnOff(CommandParameter &Parameters) {
   Serial.println("On/Off Toggle");
   onOffToggle = true;
 }
-
+// Fwd/rev button
 void Cmd_ChangeDir(CommandParameter &Parameters) {
   // flip the boolean for motor direction
   Serial.println("Direction Toggle");
   fwdRevToggle = true;
 }
 
-// Setup function
-void setup() {
-  // Establish Serial Connection
-  Serial.begin(9600);
-  Serial.println("Initializing Motor Control....\n");
-
-  // Setup Commands
-  SerialCommandHandler.AddCommand(F("startMoveButton"), Cmd_StartMove);
-  SerialCommandHandler.AddCommand(F("stopMove"), Cmd_StopMove);
-  SerialCommandHandler.AddCommand(F("changeDir"), Cmd_ChangeDir);
-  SerialCommandHandler.AddCommand(F("toggleOnOff"), Cmd_ToggleOnOff);
-
-  // Setup stepper
-  stepper.connectToPins(MOTOR_STEP_PIN, MOTOR_DIRECTION_PIN);
-  stepper.setStepsPerRevolution(800);
-  stepper.setSpeedInRevolutionsPerSecond(1.0);
-  stepper.setAccelerationInRevolutionsPerSecondPerSecond(1.0);
-
-  // Set indicator to default state
-  MyPanel.SetIndicator(F("forwardIndicator"), forward); // indicate whatever the state of "forward" is
-  MyPanel.SetIndicator(F("motorOnIndicator"), false);  // indicate 'off'
-}
-
-// Looping function
-void loop() {
+/*
+**************************************************************************************************************
+  Thread Functions
+**************************************************************************************************************
+*/
+// Function for state machine thread
+void runstatemachine() {
   // State machine always runs
   switch (state) {
     // Forward case
@@ -105,7 +112,59 @@ void loop() {
       break;
   }
 }
+// Function for reporting motor position
+void reportmotorposition() {
+  // Send current motor position
+  Serial.println((String)"{TIMEPLOT|DATA|StepperPos|T|" + stepper.getCurrentPositionInRevolutions() + "}");
+}
 
+/*
+**************************************************************************************************************
+  Main Arduino Functions
+**************************************************************************************************************
+*/
+// Setup function
+void setup() {
+  // Establish Serial Connection
+  Serial.begin(9600);
+  Serial.println("Initializing Motor Control....\n");
+
+  // Setup Thread Controller
+  // Configure Individual Threads
+  stateMachineThread.onRun(runstatemachine);
+  stateMachineThread.setInterval(100);
+  posReportThread.onRun(reportmotorposition);
+  posReportThread.setInterval(1000);
+  // Add Individual Threads to Thread Controller
+  motorControlThread.add(&stateMachineThread);
+  motorControlThread.add(&posReportThread);
+
+  // Setup Meguno Commands
+  SerialCommandHandler.AddCommand(F("startMoveButton"), Cmd_StartMove);
+  SerialCommandHandler.AddCommand(F("stopMove"), Cmd_StopMove);
+  SerialCommandHandler.AddCommand(F("changeDir"), Cmd_ChangeDir);
+  SerialCommandHandler.AddCommand(F("toggleOnOff"), Cmd_ToggleOnOff);
+
+  // Setup Stepper Motor
+  stepper.connectToPins(MOTOR_STEP_PIN, MOTOR_DIRECTION_PIN);
+  stepper.setStepsPerRevolution(800);
+  stepper.setSpeedInRevolutionsPerSecond(1.0);
+  stepper.setAccelerationInRevolutionsPerSecondPerSecond(1.0);
+
+  // Set Meguno Indicators to Default State
+  MyPanel.SetIndicator(F("forwardIndicator"), forward); // indicate whatever the state of "forward" is
+  MyPanel.SetIndicator(F("motorOnIndicator"), false);  // indicate 'off'
+}
+
+// Looping function
+void loop() {
+  motorControlThread.run();
+}
+/*
+**************************************************************************************************************
+  State machine functions
+**************************************************************************************************************
+*/
 // Function for the off mode -- do nothing except read commands
 void offFun() {
   SerialCommandHandler.Process();
@@ -121,6 +180,7 @@ void offFun() {
   fwdRevToggle = false;
   eStop = false;
 }
+
 // Function for the standby mode
 void stdbyFun() {
   SerialCommandHandler.Process();
@@ -159,9 +219,9 @@ void stdbyFun() {
     Serial.println("Standby.....");
     stdbyWait = millis();
   }
-
 }
 
+// Function when moving
 void movFun() {
   SerialCommandHandler.Process();
   // If the on/off button is pressed, go to off state
@@ -178,10 +238,10 @@ void movFun() {
     while (!stepper.motionComplete()) {
       movedone = stepper.processMovement();
       // Check if a stop was requested
-//      SerialCommandHandler.Process();
-//      if (eStop) {
-//        stepper.setupStop();
-//      }
+      //      SerialCommandHandler.Process();
+      //      if (eStop) {
+      //        stepper.setupStop();
+      //      }
       // Stop if we are done
       if (movedone) {
         state = 1;

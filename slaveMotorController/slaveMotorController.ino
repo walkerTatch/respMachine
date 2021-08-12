@@ -31,10 +31,10 @@ bool eStop = false;
 // Movement control params
 const int MOTOR_STEP_PIN = 7;
 const int MOTOR_DIRECTION_PIN = 8;
-double targetPos;
-double moveSpeed;
-double moveAccel;
-double currentPos;
+float targetPos;
+float moveSpeed;
+float moveAccel;
+float currentPos;
 // Physical inputs
 int eStopPin = 2;
 
@@ -52,13 +52,13 @@ byte* moveAccelPtr = (byte*)&moveAccel;
 // Function to run when sent a new value
 void moverequested(int numBytes) {
   //Serial.println("Move Requested");
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     targetPosPtr[i] = Wire.read();
   }
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     moveSpeedPtr[i] = Wire.read();
   }
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     moveAccelPtr[i] = Wire.read();
   }
   // Set new move parameters
@@ -66,7 +66,11 @@ void moverequested(int numBytes) {
   stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
   stepper.setTargetPositionInRevolutions(targetPos);
   // Change the request flag to true
-  moveRequested = true;
+  if (moveSpeed != 0) {
+    moveRequested = true;
+  } else {
+    moveRequested = false;
+  }
   //Serial.println(targetPos);
   //Serial.println(moveSpeed);
   //Serial.println(moveAccel);
@@ -75,7 +79,7 @@ void moverequested(int numBytes) {
 // Function to run when a value is requested
 void sendcurrentmotorpos() {
   //Serial.println("Data Requested");
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     Wire.write(currPosPtr[i]);
   }
   //Serial.println(currentPos);

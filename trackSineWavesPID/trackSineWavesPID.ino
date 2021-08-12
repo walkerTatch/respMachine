@@ -12,7 +12,7 @@
 #include <Thread.h>
 #include <ThreadController.h>
 #include <Wire.h>
-#include "QuickPID.h"
+#include <PID_v1.h>
 #include "MegunoLink.h"
 
 /***********************
@@ -21,15 +21,15 @@
 // Used in a lot of stuff
 int updateIntMs = 50;
 // Sine wave gen and sampling
-float sineVal;
-float sineFreqHz = 0.25;
-float sineAmp = 1;
+double sineVal;
+double sineFreqHz = 0.25;
+double sineAmp = 1;
 // PID Control Loop
 int controlLoopStartMs;
-float Kp = 1, Ki = 0, Kd = 0;
-float setPoint, input, output;
+double Kp = 0.5, Ki = 0.5, Kd = 0;
+double setPoint;
 // Motor Control
-double veryFar = 1.1;
+double veryFar = 5;
 double moveAmount = 0;
 double moveSpeed = 0;
 double moveAccel = 10;
@@ -52,7 +52,7 @@ Thread getMotorPosThread = Thread();
 Thread runPIDThread = Thread();
 Thread plotThread = Thread();
 // PID
-QuickPID myQuickPID(&input, &output, &setPoint, Kp, Ki, Kd, QuickPID::REVERSE);
+PID myPID(&currentPosition, &moveSpeed, &setPoint, Kp, Ki, Kd, DIRECT);
 // Plotting
 TimePlot MyPlot;
 
@@ -75,24 +75,24 @@ void samplesine() {
 // Do the PID calculations!
 void querypidstate() {
   Serial.println("Running PID");
-  input = (float)currentPosition;
-  myQuickPID.Compute();
-  moveSpeed = (double)output;
-  if (moveSpeed >= 0) {
-    targetPosition = veryFar;
-  } else {
-    targetPosition = -1 * veryFar;
+  if (myPID.Compute()) {
+    if (moveSpeed >= 0) {
+      targetPosition = veryFar;
+    } else {
+      targetPosition = -1 * veryFar;
+    }
+    sendpackettoslave();
   }
-  sendpackettoslave();
 }
 // Send a bunch of data to a plot for debugging
 void senddatatoplot() {
   MyPlot.SendData(F("Current Position"), currentPosition);
   MyPlot.SendData(F("Target Position"), targetPosition);
-  MyPlot.SendData(F("Motor Speed"),moveSpeed);
-  MyPlot.SendData(F("Output"),output);
-  MyPlot.SendData(F("Input"),input);
+  MyPlot.SendData(F("Motor Speed"), moveSpeed);
   MyPlot.SendData(F("Set Point"),setPoint);
+  //MyPlot.SendData(F("Output"), output);
+  //MyPlot.SendData(F("Input"), input);
+  //MyPlot.SendData(F("Set Point"), setPoint);
 }
 
 /*******************
@@ -129,7 +129,9 @@ void setup() {
 
   // PID
   Serial.println("Turning on PID");
-  myQuickPID.SetMode(QuickPID::AUTOMATIC);
+  myPID.SetOutputLimits(-10,10);
+  myPID.SetSampleTime(updateIntMs);
+  myPID.SetMode(AUTOMATIC);
 }
 
 void loop() {

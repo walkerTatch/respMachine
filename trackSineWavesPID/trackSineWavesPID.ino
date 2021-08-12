@@ -12,7 +12,8 @@
 #include <Thread.h>
 #include <ThreadController.h>
 #include <Wire.h>
-#include <PID_v1.h>
+#include <QuickPID.h>
+//#include <PID_AutoTune_v0.h>
 #include "MegunoLink.h"
 
 /***********************
@@ -21,20 +22,20 @@
 // Used in a lot of stuff
 int updateIntMs = 50;
 // Sine wave gen and sampling
-double sineVal;
-double sineFreqHz = 0.25;
-double sineAmp = 1;
+float sineVal;
+float sineFreqHz = 0.1667;
+float sineAmp = 1;
 // PID Control Loop
 int controlLoopStartMs;
-double Kp = 0.5, Ki = 0.5, Kd = 0;
-double setPoint;
+float Kp = 1, Ki = 0.01, Kd = 0.1;
+float setPoint;
 // Motor Control
-double veryFar = 5;
-double moveAmount = 0;
-double moveSpeed = 0;
-double moveAccel = 10;
-double currentPosition = 0;
-double targetPosition = 0;
+float veryFar = 5;
+float moveAmount = 0;
+float moveSpeed = 0;
+float moveAccel = 25;
+float currentPosition = 0;
+float targetPosition = 0;
 // Wire Transmission Stuff
 byte* currPosPtr = (byte*)&currentPosition;
 byte* targetPosPtr = (byte*)&targetPosition;
@@ -52,7 +53,7 @@ Thread getMotorPosThread = Thread();
 Thread runPIDThread = Thread();
 Thread plotThread = Thread();
 // PID
-PID myPID(&currentPosition, &moveSpeed, &setPoint, Kp, Ki, Kd, DIRECT);
+QuickPID myPID(&currentPosition, &moveSpeed, &setPoint, Kp, Ki, Kd, QuickPID::DIRECT);
 // Plotting
 TimePlot MyPlot;
 
@@ -87,7 +88,7 @@ void querypidstate() {
 // Send a bunch of data to a plot for debugging
 void senddatatoplot() {
   MyPlot.SendData(F("Current Position"), currentPosition);
-  MyPlot.SendData(F("Target Position"), targetPosition);
+  //MyPlot.SendData(F("Target Position"), targetPosition);
   MyPlot.SendData(F("Motor Speed"), moveSpeed);
   MyPlot.SendData(F("Set Point"),setPoint);
   //MyPlot.SendData(F("Output"), output);
@@ -114,7 +115,7 @@ void setup() {
   generateSineThread.onRun(gensine);
   generateSineThread.setInterval(0);
   runPIDThread.onRun(querypidstate);
-  runPIDThread.onRun(updateIntMs);
+  runPIDThread.setInterval(updateIntMs);
   getMotorPosThread.onRun(getpacketfromslave);
   getMotorPosThread.setInterval(updateIntMs);
   sineWaveSamplingThread.onRun(samplesine);
@@ -129,9 +130,12 @@ void setup() {
 
   // PID
   Serial.println("Turning on PID");
-  myPID.SetOutputLimits(-10,10);
-  myPID.SetSampleTime(updateIntMs);
-  myPID.SetMode(AUTOMATIC);
+  myPID.SetOutputLimits(-12,12);
+  myPID.SetSampleTimeUs(10000);
+  myPID.SetMode(QuickPID::AUTOMATIC);
+
+  // Plotting
+  MyPlot.Clear();
 }
 
 void loop() {

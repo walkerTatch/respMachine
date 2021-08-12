@@ -29,8 +29,8 @@ bool moveRequested = false;
 bool moveDone = false;
 bool eStop = false;
 // Movement control params
-const int MOTOR_STEP_PIN = 3;
-const int MOTOR_DIRECTION_PIN = 4;
+const int MOTOR_STEP_PIN = 7;
+const int MOTOR_DIRECTION_PIN = 8;
 double targetPos;
 double moveSpeed;
 double moveAccel;
@@ -61,7 +61,12 @@ void moverequested(int numBytes) {
   for (byte i = 0; i < sizeof(double); i++) {
     moveAccelPtr[i] = Wire.read();
   }
-  moveRequested = true; 
+  // Set new move parameters
+  stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
+  stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
+  stepper.setTargetPositionInRevolutions(targetPos);
+  // Change the request flag to true
+  moveRequested = true;
   //Serial.println(targetPos);
   //Serial.println(moveSpeed);
   //Serial.println(moveAccel);
@@ -84,7 +89,7 @@ void sendcurrentmotorpos() {
 void setup() {
   // Serial debugging
   //Serial.begin(9600);
-  
+
   // I2C communication
   //Serial.println("Starting Wire Communication");
   Wire.begin(9);
@@ -105,12 +110,8 @@ void setup() {
 void loop() {
   // If we have a move requested, do it!
   if (moveRequested) {
-    // Set up the move first
-    stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
-    stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
-    stepper.setTargetPositionInRevolutions(targetPos);
     // Now execute the move -- stop when done or if the button is pressed
-    while (!stepper.motionComplete()) {
+    if (!stepper.motionComplete()) {
       moveDone = stepper.processMovement();
       currentPos = stepper.getCurrentPositionInRevolutions();
       // Stop if we are done
@@ -129,6 +130,6 @@ void loop() {
    Interrupt Function
  * ******************
 */
-void eStopRoutine(){
+void eStopRoutine() {
   eStop = true;
 }

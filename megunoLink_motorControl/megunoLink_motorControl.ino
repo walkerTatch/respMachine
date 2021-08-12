@@ -13,6 +13,8 @@
 #include <Thread.h>
 #include <ThreadController.h>
 #include <Wire.h>
+#include "QuickPID.h"
+//#include <SD.h>
 
 /*
 **************************************************************************************************************

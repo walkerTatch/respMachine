@@ -9,7 +9,7 @@
 /******************
   Include Libraries:
 ******************/
-#include <Thread.h>
+//#include <Thread.h>
 #include <ThreadController.h>
 #include <Wire.h>
 #include <QuickPID.h>
@@ -19,21 +19,24 @@
 /***********************
   Parameter Definitions:
 ***********************/
+// Timing
+uint32_t timeNow = 0;
+uint32_t lastTime = 0;
 // Used in a lot of stuff
-int updateIntMs = 50;
+uint32_t updateIntUs = 10000;
 // Sine wave gen and sampling
 float sineVal;
-float sineFreqHz = 0.1667;
-float sineAmp = 1;
+float sineFreqHz = .167;
+float sineAmp = 5;
 // PID Control Loop
 int controlLoopStartMs;
-float Kp = 1, Ki = 0.01, Kd = 0.1;
+float Kp = 20, Ki = 3, Kd = 8;
 float setPoint;
 // Motor Control
-float veryFar = 5;
+float veryFar = 100;
 float moveAmount = 0;
 float moveSpeed = 0;
-float moveAccel = 25;
+float moveAccel = 150;
 float currentPosition = 0;
 float targetPosition = 0;
 // Wire Transmission Stuff
@@ -46,12 +49,12 @@ byte* moveAccelPtr = (byte*)&moveAccel;
   Library Objects:
 *****************/
 // Threads
-ThreadController doAllTasks = ThreadController();
-Thread generateSineThread = Thread();
-Thread sineWaveSamplingThread = Thread();
-Thread getMotorPosThread = Thread();
-Thread runPIDThread = Thread();
-Thread plotThread = Thread();
+//ThreadController doAllTasks = ThreadController();
+//Thread generateSineThread = Thread();
+//Thread sineWaveSamplingThread = Thread();
+//Thread getMotorPosThread = Thread();
+//Thread runPIDThread = Thread();
+//Thread plotThread = Thread();
 // PID
 QuickPID myPID(&currentPosition, &moveSpeed, &setPoint, Kp, Ki, Kd, QuickPID::DIRECT);
 // Plotting
@@ -63,7 +66,8 @@ TimePlot MyPlot;
 // Generate the sine wave as fast as possible
 void gensine() {
   //Serial.println("Generating Sine");
-  sineVal = sineAmp * sin(2 * PI * sineFreqHz * millis() / 1000);
+  sineVal = sineAmp * sin(2 * PI * sineFreqHz * micros() / 1000000);
+  sineVal = sineVal + 0.2*sin(2*PI*6*sineFreqHz*micros()/1000000);
   //MyPlot.SendData(F("True Sine"),sineVal);
 }
 
@@ -75,11 +79,12 @@ void samplesine() {
 
 // Do the PID calculations!
 void querypidstate() {
-  Serial.println("Running PID");
+  //Serial.println("Running PID");
   if (myPID.Compute()) {
     if (moveSpeed >= 0) {
       targetPosition = veryFar;
     } else {
+      moveSpeed = -1*moveSpeed;
       targetPosition = -1 * veryFar;
     }
     sendpackettoslave();
@@ -88,12 +93,8 @@ void querypidstate() {
 // Send a bunch of data to a plot for debugging
 void senddatatoplot() {
   MyPlot.SendData(F("Current Position"), currentPosition);
-  //MyPlot.SendData(F("Target Position"), targetPosition);
   MyPlot.SendData(F("Motor Speed"), moveSpeed);
   MyPlot.SendData(F("Set Point"),setPoint);
-  //MyPlot.SendData(F("Output"), output);
-  //MyPlot.SendData(F("Input"), input);
-  //MyPlot.SendData(F("Set Point"), setPoint);
 }
 
 /*******************
@@ -101,7 +102,7 @@ void senddatatoplot() {
 *******************/
 void setup() {
   // Serial communication for debugging
-  Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial);
   Serial.println("Welcome to PID Tracking Code");
 
@@ -110,28 +111,10 @@ void setup() {
   Wire.begin();
   Wire.setClock(400000);
 
-  // Threads
-  Serial.println("Starting Threads");
-  generateSineThread.onRun(gensine);
-  generateSineThread.setInterval(0);
-  runPIDThread.onRun(querypidstate);
-  runPIDThread.setInterval(updateIntMs);
-  getMotorPosThread.onRun(getpacketfromslave);
-  getMotorPosThread.setInterval(updateIntMs);
-  sineWaveSamplingThread.onRun(samplesine);
-  sineWaveSamplingThread.setInterval(updateIntMs);
-  plotThread.onRun(senddatatoplot);
-  plotThread.setInterval(100);
-  //doAllTasks.add(&runPIDThread);
-  doAllTasks.add(&generateSineThread);
-  doAllTasks.add(&getMotorPosThread);
-  doAllTasks.add(&sineWaveSamplingThread);
-  doAllTasks.add(&plotThread);
-
   // PID
   Serial.println("Turning on PID");
-  myPID.SetOutputLimits(-12,12);
-  myPID.SetSampleTimeUs(10000);
+  myPID.SetOutputLimits(-12.5,12.5);
+  myPID.SetSampleTimeUs(updateIntUs);
   myPID.SetMode(QuickPID::AUTOMATIC);
 
   // Plotting
@@ -139,8 +122,20 @@ void setup() {
 }
 
 void loop() {
-  // Threads always run -- do everything in pseudo parallel
-  doAllTasks.run();
+  // Update the time
+  timeNow = micros();
+  
+  // Always generate the sine wave
+  gensine();
+  // Sample and send stuff to plot if necessary
+  if (timeNow - lastTime > updateIntUs){
+    samplesine();
+    getpacketfromslave();
+    senddatatoplot();
+    lastTime = timeNow;
+  }
+
+  // Always run PID loop
   querypidstate();
 }
 
@@ -172,6 +167,6 @@ void sendpackettoslave() {
   }
   byte stat = Wire.endTransmission(9);
   if (stat == 0) {
-    Serial.println("Sent Packet to Slave");
+    //Serial.println("Sent Packet to Slave");
   }
 }

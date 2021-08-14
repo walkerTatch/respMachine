@@ -11,8 +11,7 @@
 #include <Thread.h>
 #include <ThreadController.h>
 #include <Wire.h>
-#include <PID_v1.h>
-#include <PID_AutoTune_v0.h>
+#include "QuickPID.h"
 #include "MegunoLink.h"
 
 /***********************
@@ -22,23 +21,24 @@
 int updateIntMs = 50;
 // Autotune stuff
 byte ATuneModeRemember = 2;
-double setpoint = 10;
-double kp = 01, ki = 0.1, kd = 0.1;
+float setpoint = 10;
+float kp = 01, ki = 0.1, kd = 0.1;
 
-double outputStart = 5;
-double aTuneStep = 5, aTuneNoise = 1, aTuneStartValue = 10;
+float outputStart = 5;
+float aTuneStep = 5, aTuneNoise = 1, aTuneStartValue = 10;
 unsigned int aTuneLookBack = 20;
 
+boolean pidLoop = false;
 boolean tuning = false;
 unsigned long serialTime;
 
 // Motor Control
-double veryFar = 30;
-double moveAmount = 0;
-double moveSpeed = 0;
-double moveAccel = 100;
-double currentPosition = 0;
-double targetPosition = 0;
+float veryFar = 30;
+float moveAmount = 0;
+float moveSpeed = 0;
+float moveAccel = 100;
+float currentPosition = 0;
+float targetPosition = 0;
 // Wire Transmission Stuff
 byte* currPosPtr = (byte*)&currentPosition;
 byte* targetPosPtr = (byte*)&targetPosition;
@@ -49,7 +49,7 @@ byte* moveAccelPtr = (byte*)&moveAccel;
   Library Objects:
 *****************/
 // PID Stuff
-PID myPID(&currentPosition, &moveSpeed, &setpoint, kp, ki, kd, DIRECT);
+QuickPID myPID(&currentPosition, &moveSpeed, &setpoint, kp, ki, kd, QuickPID::DIRECT);
 PID_ATune aTune(&currentPosition, &moveSpeed);
 // Meguno Plotting
 TimePlot MyPlot;
@@ -77,7 +77,7 @@ void querypidstate() {
 }
 
 // Tune the PID
-void pidtunemain(){
+void pidtunemain() {
   if (tuning) {
     Serial.println("Tuning");
     byte val = (aTune.Runtime());
@@ -100,7 +100,7 @@ void senddatatoplot() {
   MyPlot.SendData(F("Current Position"), currentPosition);
   //MyPlot.SendData(F("Target Position"), targetPosition);
   MyPlot.SendData(F("Motor Speed"), moveSpeed);
-  MyPlot.SendData(F("Set Point"),setpoint);
+  MyPlot.SendData(F("Set Point"), setpoint);
   //MyPlot.SendData(F("Output"), output);
   //MyPlot.SendData(F("Input"), input);
   //MyPlot.SendData(F("Set Point"), setPoint);
@@ -122,16 +122,13 @@ void setup() {
 
   // PID
   Serial.println("Turning on PID");
-  myPID.SetOutputLimits(-12,12);
+  myPID.SetOutputLimits(-12, 12);
   myPID.SetSampleTime(updateIntMs);
   myPID.SetMode(AUTOMATIC);
 
   // PID autotuner
-  if (tuning){
-    tuning = false;
-    changeAutoTune();
-    tuning = true;
-  }
+  myPID.AutoTune(tuningMethod::ZIEGLER_NICHOLS_PID);
+  myPID.autoTune->autoTuneConfig(outputStep, hysteresis, setpoint, output, QuickPID::DIRECT, printOrPlotter, sampleTimeUs);
 
   // Threads
   //Motor position
@@ -153,7 +150,7 @@ void setup() {
   doAllTasks.add(&plotThread);
 }
 
-void loop(){
+void loop() {
   // Run all threads
   doAllTasks.run();
 }
@@ -184,25 +181,16 @@ void AutoTuneHelper(boolean start) {
   else
     myPID.SetMode(ATuneModeRemember);
 }
-// Send out data
-void SerialSend() {
-  if (tuning) {
-    Serial.println("tuning mode");
-  } else {
-    Serial.print("kp: "); Serial.print(myPID.GetKp()); Serial.print(" ");
-    Serial.print("ki: "); Serial.print(myPID.GetKi()); Serial.print(" ");
-    Serial.print("kd: "); Serial.print(myPID.GetKd()); Serial.println();
-  }
-}
 
-// Get some stuff from serial to change the tuning state
-void SerialReceive() {
-  if (Serial.available())
-  {
-    char b = Serial.read();
-    Serial.flush();
-    if ((b == '1' && !tuning) || (b != '1' && tuning))changeAutoTune();
-  }
+float avg(int inputVal) {
+  static int arrDat[16];
+  static int pos;
+  static long sum;
+  pos++;
+  if (pos >= 16) pos = 0;
+  sum = sum - arrDat[pos] + inputVal;
+  arrDat[pos] = inputVal;
+  return (float)sum / 16.0;
 }
 
 /****************
@@ -222,13 +210,13 @@ void getpacketfromslave() {
 // Send all of the necessary parameters as bytes
 void sendpackettoslave() {
   Wire.beginTransmission(9);
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     Wire.write(targetPosPtr[i]);
   }
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     Wire.write(moveSpeedPtr[i]);
   }
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     Wire.write(moveAccelPtr[i]);
   }
   byte stat = Wire.endTransmission(9);

@@ -15,7 +15,7 @@ void sinetrackfun() {
     delay(2000);
         
     // Make sure we're at the correct starting position here
-    getpacketfromslave();
+    stepper_getposition();
     if (currentPosition != membraneZeroPosition) {
       movepistontomembranezero();
     }
@@ -42,7 +42,7 @@ void sinetrackfun() {
   // If our sample update period has been hit, sample the sine wave and the motor position
   if (timeNow - lastSampleTime > sampleUpdateIntUs) {
     motorPosSetPoint = sineVal + membraneZeroPosition;
-    getpacketfromslave();
+    stepper_getposition();
     lastSampleTime = timeNow;
   }
 

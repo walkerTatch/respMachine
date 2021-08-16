@@ -20,6 +20,6 @@ void trackpositionsignal(){
       targetPosition = -1 * veryFar;
     }
     // Send command to motor
-    sendpackettoslave();
+    stepper_movecommand();
   }
 }

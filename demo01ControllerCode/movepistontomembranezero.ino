@@ -20,7 +20,7 @@ void movepistontomembranezero(){
   moveAccel = jogAccel;
   moveSpeed = jogSpeed;
   targetPosition = membraneZeroPosition;
-  sendpackettoslave();
+  stepper_movecommand();
 
   // Restore old values for accel and move speed
   moveSpeed = oldMoveSpeed;

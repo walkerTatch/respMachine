@@ -7,9 +7,23 @@
 
 void startupfun(){
   // Temp message before everything is set up
-  Serial.println("Startup function not written yet. There's no rules!!!!!!");
+  Serial.println("Startup function not written yet. There's no rules");
   delay(2000);
   state = 1;
+
+  // Reeset the slave arduino
+  Serial.println("Resetting motor control");
+  stepper_reset();
+  delay(1000);
+
+  // Home the stepper motor
+  //Serial.println("Homing motor");
+  stepper_home();
+  delay(5000);
+  // Move back to membrane zero
+  //Serial.println("Moving to piston zero");
+  //movepistontomembranezero();
+  //delay(5000);
 
   // Actual function flow is as follows:
 

@@ -18,8 +18,8 @@
   Include Libraries:
 ******************/
 #include <Wire.h>
-//#include <SD.h>
-//#include <SPI.h>
+#include <SD.h>
+#include <SPI.h>
 #include <QuickPID.h>
 #include "MegunoLink.h"
 #include "CommandHandler.h"
@@ -51,8 +51,9 @@ float Kp = 10, Ki = 0.1, Kd = 0.5;                                  //PID contro
 float motorPosSetPoint;                                             //Target of motor position for PID tracking
 
 // SD
-//uint8_t chipSelect = 4;
-//File testFile;
+uint8_t chipSelect = 10;
+File testFile;
+byte* motorPosSetPointPtr = (byte*)&motorPosSetPoint;
 
 // Motor Control
 float veryFar = 100;
@@ -69,7 +70,7 @@ byte* moveAccelPtr = (byte*)&moveAccel;
 
 // Physical machine params
 float motorSpeedMax = 12;
-float membraneZeroPosition = 0;
+float membraneZeroPosition = 1.5;
 float jogSpeed = 3;
 float jogAccel = 10;
 
@@ -79,6 +80,7 @@ boolean motorStopCommand = false;
 boolean motorJogMoveCommand = false;
 boolean motorJogDirection = true;
 boolean motorSineMoveCommand = false;
+boolean motorSDMoveCommand = false;
 
 
 /*****************
@@ -111,6 +113,7 @@ void setup() {
   SerialCommandHandler.AddCommand(F("startMoveButton"), cmd_startmove);
   SerialCommandHandler.AddCommand(F("changeDir"), cmd_changedir);
   SerialCommandHandler.AddCommand(F("startSine"),cmd_startsine);
+  SerialCommandHandler.AddCommand(F("startSD"),cmd_startsd);
 
   // PID
   pidsetup();

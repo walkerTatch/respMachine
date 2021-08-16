@@ -41,3 +41,10 @@ void cmd_startsine(CommandParameter &Parameters) {
   sineFreqHz = Parameters.NextParameterAsDouble();
   motorSineMoveCommand = true;
 }
+
+// Start sd move button
+void cmd_startsd(CommandParameter &Parameters) {
+  // Serial debugging
+  //Serial.println("Motor SD move command received");
+  motorSDMoveCommand = true;
+}

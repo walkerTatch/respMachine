@@ -9,12 +9,12 @@
 
 void sdsetup(){
   // Serial debugging
-  Serial.println("SD functionality not enabled yet :'(");
+  Serial.println("SD functionality not enabled yet");
 
-//  if (!SD.begin(chipSelect)) {
-//    Serial.println("Card failed, or not present");
-//    // don't do anything more:
-//  } else {
-//    Serial.println("Card Initialized");
-//  }
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
+    // don't do anything more:
+  } else {
+    Serial.println("Card Initialized");
+  }
 }

@@ -11,21 +11,9 @@ void sinetrackfun() {
   //Serial.println("Executing Function:     sinetrackfun");
 
   // If the last state was not this one, do a little update
-  if (prevState != state) { 
-    delay(2000);
-        
-    // Make sure we're at the correct starting position here
-    stepper_getposition();
-    if (currentPosition != membraneZeroPosition) {
-      movepistontomembranezero();
-    }
-
-    // Clear plot
-    MyPlot.Clear();
-    
-    // Reset timers
-    lastPlotTime = 0;
-    lastSampleTime = 0;
+  if (prevState == 1) { 
+    // Setup for the movement phase
+    movephasesetup();
 
     // Reset "zero time" for sine wave (do this last)
     sineStartTimeUs = micros();
@@ -34,7 +22,6 @@ void sinetrackfun() {
   // Take the time;
   timeNow = micros();
   uint32_t sineTime = timeNow-sineStartTimeUs;
-  Serial.println(sineTime);
 
   // Generate the sine wave every loop
   sineVal = sineAmp * sin(2 * PI * sineFreqHz * (timeNow - sineStartTimeUs) / 1000000);
@@ -52,12 +39,15 @@ void sinetrackfun() {
   // If our plot update period has been hit, send data to the plot
   if (timeNow - lastPlotTime > plotUpdateIntUs) {
     senddatatoplot();
+    lastPlotTime = timeNow;
   }
 
   // If a stop was requested -- do the "movement phase ended" events
   if (motorStopCommand) {
     // Reset button state
     motorStopCommand = false;
+    // Stop the motor
+    stepper_stop();
     // Move motor back to the membrane zero position
     movepistontomembranezero();
     // Set state to idle

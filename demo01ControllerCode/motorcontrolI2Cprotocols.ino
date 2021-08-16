@@ -30,13 +30,13 @@ void stepper_movecommand() {
   byte cmdByte = 3;
   Wire.write(cmdByte);
   // Send the data
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     Wire.write(targetPosPtr[i]);
   }
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     Wire.write(moveSpeedPtr[i]);
   }
-  for (byte i = 0; i < sizeof(double); i++) {
+  for (byte i = 0; i < sizeof(float); i++) {
     Wire.write(moveAccelPtr[i]);
   }
   byte stat = Wire.endTransmission(9);
@@ -53,10 +53,10 @@ void stepper_reset(){
   Wire.beginTransmission(9);
   byte cmdByte = 0;
   Wire.write(cmdByte);
-  Wire.endTransmission(9);  
+  Wire.endTransmission(9);
 }
 
-// Reset command
+// Zero command
 void stepper_zero(){
   // Serial debugging
   //Serial.println("Executing Function:     stepper_zero");
@@ -64,7 +64,7 @@ void stepper_zero(){
   Wire.beginTransmission(9);
   byte cmdByte = 1;
   Wire.write(cmdByte);
-  Wire.endTransmission(9);  
+  Wire.endTransmission(9);
 }
 
 // Reset command
@@ -75,7 +75,7 @@ void stepper_stop(){
   Wire.beginTransmission(9);
   byte cmdByte = 2;
   Wire.write(cmdByte);
-  Wire.endTransmission(9);  
+  Wire.endTransmission(9);
 }
 
 // Reset command

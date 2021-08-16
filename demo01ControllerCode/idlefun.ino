@@ -7,12 +7,18 @@
 ****************************************************************************************************************/
 void idlefun() {
   // Serial debugging
-  Serial.println("No idle function yet :'(");
+  Serial.println("No idle function yet");
 
   // If sine button was pressed, go there
   if (motorSineMoveCommand) {
     state = 2;
     motorSineMoveCommand = false;
+  }
+
+  // If SSD button was pressed, go there
+  if (motorSDMoveCommand){
+    state = 3;
+    motorSDMoveCommand = false;
   }
 
   delay(500);

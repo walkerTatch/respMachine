@@ -24,8 +24,12 @@ FlexyStepper stepper;
    Setup Parameters
  * ****************
 */
+// State control variables
+byte state = 0;
+
 // Wire Comm Variables
 byte commandByte;
+
 // Movement control bools
 bool moveRequested = false;
 bool moveDone = false;
@@ -38,8 +42,8 @@ byte homeDir = -1;
 float homeSpeed = 2.5;
 long maxHomeDistance = 40;
 float targetPos;
-float moveSpeed = 1;
-float moveAccel = 1;
+float moveSpeed = 10;
+float moveAccel = 10;
 float currentPos;
 
 // Physical inputs
@@ -57,28 +61,30 @@ byte* moveAccelPtr = (byte*)&moveAccel;
  * *************
 */
 // Read one byte, then decide what to do
-void parsecommand(){
+void parsecommand(int numBytes) {
+  // Get the command byte
   commandByte = Wire.read();
-  switch (commandByte){
+  // Do a different command depending on what was sent
+  switch (commandByte) {
     // Reset the arduino
     case 0:
-       resetcommand();
-    break;
+      resetcommand();
+      break;
     // Set position to zero
     case 1:
       zerocommand();
-    break;
+      break;
     // Stop moving
     case 2:
       stopcommand();
-    break;
+      break;
     // Move command
     case 3:
       movecommand();
-    break;
+      break;
     case 4:
       homecommand();
-    break;
+      break;
   }
 }
 
@@ -98,27 +104,52 @@ void sendcurrentmotorpos() {
 */
 void setup() {
   // Serial debugging
-  //Serial.begin(9600);
-
-  // I2C communication
-  //Serial.println("Starting Wire Communication");
-  Wire.begin(9);
-  Wire.setClock(400000);
-  Wire.onReceive(parsecommand);
-  Wire.onRequest(sendcurrentmotorpos);
+  Serial.begin(115200);
 
   // Stepper stuff
-  //Serial.println("Initializing Stepper");
+  Serial.println("Initializing Stepper");
   stepper.connectToPins(MOTOR_STEP_PIN, MOTOR_DIRECTION_PIN);
   stepper.setStepsPerRevolution(800);
   stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
   stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
+
+  // I2C communication
+  Serial.println("Starting Wire Communication");
+  Wire.begin(9);
+  Wire.setClock(400000);
+  Wire.onReceive(parsecommand);
+  Wire.onRequest(sendcurrentmotorpos);
 }
 
 void loop() {
-  // If we have a move requested, do it!
+  // Check the state
+  switch (state) {
+    // Nominal state
+    case 0:
+      movementfun();
+      break;
+    // Homing State
+    case 1:
+      homefun();
+      break;
+  }
+}
+
+/***********************
+  Functions for Movement:
+ **********************/
+// Function for going home
+void homefun() {
+  // Home command
+  stepper.moveToHomeInSteps(-1, 800, 8000, 9);
+  // End by going into the normal movement state
+  state = 0;
+}
+
+// Function checks if we need to move, then does it if necessary
+void movementfun() {
   if (moveRequested) {
-    // Now execute the move -- stop when done or if the button is pressed
+    // Execute the move
     if (!stepper.motionComplete()) {
       moveDone = stepper.processMovement();
       currentPos = stepper.getCurrentPositionInRevolutions();
@@ -134,10 +165,36 @@ void loop() {
 }
 
 /*
- * *****************
-   Helper Functions:
- * *****************
+ * **************
+   Wire Commands:
+ * **************
 */
+// Function reads in data for a move command and initiates the move
+void movecommand() {
+  // Serial debugging
+  //Serial.println("Move Command Received");
+  // Read in the three values & store
+  for (byte i = 0; i < sizeof(float); i++) {
+    targetPosPtr[i] = Wire.read();
+  }
+  for (byte i = 0; i < sizeof(float); i++) {
+    moveSpeedPtr[i] = Wire.read();
+  }
+  for (byte i = 0; i < sizeof(float); i++) {
+    moveAccelPtr[i] = Wire.read();
+  }
+  // Set new move parameters
+  stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
+  stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
+  stepper.setTargetPositionInRevolutions(targetPos);
+  // Change the request flag to true if a speed > 0 was requested
+  if (moveSpeed != 0) {
+    moveRequested = true;
+  } else {
+    moveRequested = false;
+  }
+}
+
 // Function resets the arduino
 void resetcommand() {
   // Serial debugging
@@ -160,38 +217,9 @@ void stopcommand() {
   stopRequested = true;
 }
 
-// Function reads in data for a move command and initiates the move
-void movecommand() {
-  // Serial debugging
-  Serial.println("Move Command Received");
-  // Read in the three values & store
-  for (byte i = 0; i < sizeof(float); i++) {
-    targetPosPtr[i] = Wire.read();
-  }
-  for (byte i = 0; i < sizeof(float); i++) {
-    moveSpeedPtr[i] = Wire.read();
-  }
-  for (byte i = 0; i < sizeof(float); i++) {
-    moveAccelPtr[i] = Wire.read();
-  }
-  // Set new move parameters
-  stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
-  stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
-  stepper.setTargetPositionInRevolutions(targetPos);
-  // Change the request flag to true if a speed > 0 was requested
-  if (moveSpeed != 0) {
-    moveRequested = true;
-  } else {
-    moveRequested = false;
-  }
-  //Serial.println(targetPos);
-  //Serial.println(moveSpeed);
-  //Serial.println(moveAccel);
-}
-
-// Function does a homing operation
+// Function sets the homing flag to true
 void homecommand() {
   // Serial debugging
   Serial.println("Homing Command Received");
-  stepper.moveToHomeInRevolutions(homeDir,homeSpeed,maxHomeDistance,limitSwitchPin);
+  state = 1;
 }

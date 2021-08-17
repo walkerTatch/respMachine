@@ -10,7 +10,7 @@ void sdtrackfun() {
   //Serial.println("Executing Function: sdtrackfun");
 
   // If the last state was not this one, do a little update
-  if (prevState == 1) {
+  if (prevState != state) {
 
     // Setup for the movement phase
     movephasesetup();

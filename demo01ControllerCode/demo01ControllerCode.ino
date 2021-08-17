@@ -28,8 +28,8 @@
   Parameter Definitions:
 ***********************/
 // State control
-uint8_t state = 0;                                                  //What's the state now
-uint8_t prevState = 0;                                              //What was the state last time?
+uint8_t state = 1;                                                  //What's the state now
+uint8_t prevState = 1;                                              //What was the state last time?
 
 // Timing
 uint32_t timeNow = 0;                                               //Tracker for looping controls
@@ -70,11 +70,15 @@ byte* moveAccelPtr = (byte*)&moveAccel;
 
 // Physical machine params
 float motorSpeedMax = 12;
-float membraneZeroPosition = 1.5;
+float membraneZeroPosition = 3.5;
+float membraneFillPosition = 3;
 float jogSpeed = 3;
 float jogAccel = 10;
 
 // Megunolink control params
+boolean beginStartupCommand = false;
+boolean valveOpenedConfirmation = false;
+boolean valveClosedConfirmation = false;
 boolean motorHomeCommand = false;
 boolean motorStopCommand = false;
 boolean motorJogMoveCommand = false;
@@ -82,6 +86,12 @@ boolean motorJogDirection = true;
 boolean motorSineMoveCommand = false;
 boolean motorSDMoveCommand = false;
 
+// Startup flow controls
+boolean startupComplete = false;
+boolean valveJustOpened = true;
+uint32_t motorHomeTime = 0;
+boolean motorHomed = false;
+boolean motorJustHomed = true;
 
 /*****************
   Library Objects:
@@ -92,6 +102,8 @@ CommandHandler<> SerialCommandHandler;
 QuickPID myPID(&currentPosition, &moveSpeed, &motorPosSetPoint, Kp, Ki, Kd, QuickPID::DIRECT);
 // Plotting
 TimePlot MyPlot;
+// Meguno panel
+InterfacePanel MyPanel;
 
 /*******************
   Arduino Functions:
@@ -108,12 +120,16 @@ void setup() {
   Wire.setClock(400000);
 
   // Meguno buttons
+  SerialCommandHandler.AddCommand(F("beginStartup"),cmd_beginstartup);
+  SerialCommandHandler.AddCommand(F("valveOpen"),cmd_valveopenconfirmation);
+  SerialCommandHandler.AddCommand(F("valveClosed"),cmd_valveclosedconfirmation);
   SerialCommandHandler.AddCommand(F("requestHome"),cmd_requesthome);
   SerialCommandHandler.AddCommand(F("stopMove"), cmd_stopmove);
   SerialCommandHandler.AddCommand(F("startMoveButton"), cmd_startmove);
   SerialCommandHandler.AddCommand(F("changeDir"), cmd_changedir);
   SerialCommandHandler.AddCommand(F("startSine"),cmd_startsine);
   SerialCommandHandler.AddCommand(F("startSD"),cmd_startsd);
+  resetstartuppanelindicators();
 
   // PID
   pidsetup();

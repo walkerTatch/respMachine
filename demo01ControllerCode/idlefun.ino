@@ -7,17 +7,32 @@
 ****************************************************************************************************************/
 void idlefun() {
   // Serial debugging
-  Serial.println("No idle function yet");
+  Serial.println("Idle....");
+
+  // If the startup procedure was initialized, go there
+  if (beginStartupCommand) {
+    state = 0;
+    beginStartupCommand = false;
+  }
 
   // If sine button was pressed, go there
   if (motorSineMoveCommand) {
-    state = 2;
+    if (startupComplete) {
+      state = 2;
+    } else {
+      Serial.println("Please complete startup procedure");
+    }
     motorSineMoveCommand = false;
   }
 
-  // If SSD button was pressed, go there
-  if (motorSDMoveCommand){
-    state = 3;
+  // If SD button was pressed, go there
+  if (motorSDMoveCommand) {
+    if (startupComplete) {
+      state = 3;
+
+    } else {
+      Serial.println("Please complete startup procedure");
+    }
     motorSDMoveCommand = false;
   }
 

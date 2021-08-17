@@ -25,7 +25,7 @@ FlexyStepper stepper;
  * ****************
 */
 // State control variables
-byte state = 0;
+byte state = 0;           // 0 --> flex move, 1 --> blocking move, 2 --> homing
 
 // Wire Comm Variables
 byte commandByte;
@@ -34,6 +34,7 @@ byte commandByte;
 bool moveRequested = false;
 bool moveDone = false;
 bool stopRequested = false;
+bool blockingMoveDone = false;
 
 // Movement control params
 const int MOTOR_STEP_PIN = 7;
@@ -78,17 +79,56 @@ void parsecommand(int numBytes) {
     case 2:
       stopcommand();
       break;
-    // Move command
+    // Flex move command
     case 3:
-      movecommand();
+      flexmovecommand();
       break;
+    // Blocking move command
     case 4:
+      blockingmovecommand();
+      break;
+    // Home command
+    case 5:
       homecommand();
       break;
   }
 }
 
+// Function finishes reading the wire buffer if there is a move command
+void readmoveparams() {
+  // First the target position, then the speed, then the accel
+  for (byte i = 0; i < sizeof(float); i++) {
+    targetPosPtr[i] = Wire.read();
+  }
+  for (byte i = 0; i < sizeof(float); i++) {
+    moveSpeedPtr[i] = Wire.read();
+  }
+  for (byte i = 0; i < sizeof(float); i++) {
+    moveAccelPtr[i] = Wire.read();
+  }
+  // Set new move parameters
+  stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
+  stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
+  stepper.setTargetPositionInRevolutions(targetPos);
+  if (moveSpeed != 0) {
+    moveRequested = true;
+  } else {
+    moveRequested = false;
+  }
+}
+
 // Function to run when a value is requested
+void requesthandler(){
+  // If we're in a flexy move, always send the motor position
+  if (state == 0) {
+    sendcurrentmotorpos();
+  // If we're in a blocking move, send the state of the blocking move
+  } else {
+    Wire.write(blockingMoveDone);
+  }
+}
+
+// Sends back the motor position
 void sendcurrentmotorpos() {
   //Serial.println("Data Requested");
   for (byte i = 0; i < sizeof(float); i++) {
@@ -118,18 +158,22 @@ void setup() {
   Wire.begin(9);
   Wire.setClock(400000);
   Wire.onReceive(parsecommand);
-  Wire.onRequest(sendcurrentmotorpos);
+  Wire.onRequest(requesthandler);
 }
 
 void loop() {
   // Check the state
   switch (state) {
-    // Nominal state
+    // Flex move state
     case 0:
-      movementfun();
+      flexmovefun();
+      break;
+    // Blocking move state
+    case 1:
+      blockingmovefun();
       break;
     // Homing State
-    case 1:
+    case 2:
       homefun();
       break;
   }
@@ -143,13 +187,15 @@ void homefun() {
   // Home command
   stepper.moveToHomeInSteps(-1, 800, 8000, 9);
   // End by going into the normal movement state
+  blockingMoveDone = true;
+  delay(100);
   state = 0;
 }
 
-// Function checks if we need to move, then does it if necessary
-void movementfun() {
-  if (moveRequested) {
-    // Execute the move
+// Function checks if we need to move, then does it if necessary -- keeps the main looping function open so that the state and move parameters can be updated mid move
+void flexmovefun() {
+  if (moveRequested && moveSpeed != 0) {
+    // Execute the move -- keep exiting this function and coming back
     if (!stepper.motionComplete()) {
       moveDone = stepper.processMovement();
       currentPos = stepper.getCurrentPositionInRevolutions();
@@ -164,37 +210,30 @@ void movementfun() {
   }
 }
 
-/*
- * **************
-   Wire Commands:
- * **************
-*/
-// Function reads in data for a move command and initiates the move
-void movecommand() {
-  // Serial debugging
-  //Serial.println("Move Command Received");
-  // Read in the three values & store
-  for (byte i = 0; i < sizeof(float); i++) {
-    targetPosPtr[i] = Wire.read();
-  }
-  for (byte i = 0; i < sizeof(float); i++) {
-    moveSpeedPtr[i] = Wire.read();
-  }
-  for (byte i = 0; i < sizeof(float); i++) {
-    moveAccelPtr[i] = Wire.read();
-  }
-  // Set new move parameters
-  stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
-  stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
-  stepper.setTargetPositionInRevolutions(targetPos);
-  // Change the request flag to true if a speed > 0 was requested
-  if (moveSpeed != 0) {
-    moveRequested = true;
-  } else {
+// Function checks if we need to move, then does it -- BLOCKING! Waits until the move is done, then sends a confirmation byte to the master arduino
+void blockingmovefun() {
+  if (moveRequested && moveSpeed != 0) {
+    // Do the move, but don't break out of this function
+    while (!stepper.motionComplete() && !stopRequested) {
+      stepper.processMovement();
+      currentPos = stepper.getCurrentPositionInRevolutions();
+    }
+    // Reset flags to zero
     moveRequested = false;
+    moveDone = false;
+    stopRequested = false;
   }
+  // Change the move state to true
+  blockingMoveDone = true;
+  delay(100);
+  state = 0;
 }
 
+/*
+ * **********************
+   Wire Helper Functions:
+ * **********************
+*/
 // Function resets the arduino
 void resetcommand() {
   // Serial debugging
@@ -217,9 +256,27 @@ void stopcommand() {
   stopRequested = true;
 }
 
-// Function sets the homing flag to true
+// Function starts a non-blocking move
+void flexmovecommand() {
+  // Serial debugging
+  Serial.println("Flex Move Command Received");
+  readmoveparams();
+  state = 0;
+}
+
+// Function starts a blocking move
+void blockingmovecommand() {
+  // Serial debugging
+  Serial.println("Blocking Move Command Received");
+  readmoveparams();
+  state = 1;
+  blockingMoveDone = false;
+}
+
+// Function starts a homing move
 void homecommand() {
   // Serial debugging
-  Serial.println("Homing Command Received");
-  state = 1;
+  Serial.println("Home Move Command Received");
+  state = 2;
+  blockingMoveDone = false;
 }

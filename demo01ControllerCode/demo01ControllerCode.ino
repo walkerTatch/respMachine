@@ -67,6 +67,7 @@ byte* currPosPtr = (byte*)&currentPosition;
 byte* targetPosPtr = (byte*)&targetPosition;
 byte* moveSpeedPtr = (byte*)&moveSpeed;
 byte* moveAccelPtr = (byte*)&moveAccel;
+uint32_t blockingFunctionTimeoutMs = 30000;
 
 // Physical machine params
 float motorSpeedMax = 12;

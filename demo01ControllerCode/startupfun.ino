@@ -38,13 +38,8 @@ void startupfun() {
       delay(1000);
       motorHomeTime = micros();
       stepper_home();
+      motorHomed = true;
     }
-  }
-
-  // For now, just wait a bit until the motor is homed
-  timeNow = micros();
-  if (valveOpenedConfirmation && (timeNow - motorHomeTime >= 5000000)) {
-    motorHomed = true;
   }
 
   // Once the motor is homed, display the next buttons/warnings
@@ -65,9 +60,6 @@ void startupfun() {
     movepistontomembranezero();
     // Then show that we are done
     MyPanel.ShowControl(F("startupFinishedMsg"));
-    // Clear the errant "start" button presses
-    motorSineMoveCommand = false;
-    motorSDMoveCommand = false;
     // Flag the startup as complete, move back to the idle state, and reset button presses
     startupComplete = true;
     state = 1;

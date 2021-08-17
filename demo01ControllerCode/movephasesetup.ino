@@ -21,8 +21,6 @@ void movephasesetup() {
     movepistontomembranezero();
   }
 
-  delay(1000);
-
   // Clear plot
   MyPlot.Clear();
 

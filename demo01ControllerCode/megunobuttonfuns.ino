@@ -8,12 +8,21 @@
 /******
 Global:
 ******/
+// Helper function resets the start commands -- call when exiting a state so new commands don't start immediately
+void resetstartbuttonpresses(){
+beginStartupCommand = false;
+motorSineMoveCommand = false;
+motorSDMoveCommand = false;
+vacuumPullStartCommand = false;
+}
+
 // Stop move button
 void cmd_stopmove(CommandParameter &Parameters) {
   // Serial debugging
   //Serial.println("Motor stop command received");
   motorStopCommand = true;
 }
+
 /***********************
 Startup Procedure Panel:
 ***********************/
@@ -80,10 +89,26 @@ void cmd_startsine(CommandParameter &Parameters) {
 /**************
 SD Track Panel:
 **************/
-
 // Start sd move button
 void cmd_startsd(CommandParameter &Parameters) {
   // Serial debugging
   //Serial.println("Motor SD move command received");
   motorSDMoveCommand = true;
+}
+
+/**************
+Vac Pull Panel:
+**************/
+// Start vac pull button
+void cmd_startvacuumpull(CommandParameter &Parameters){
+  // Serial debuging
+  //Serial.println("Vacuum pull start command received");
+  vacuumPullStartCommand = true;
+}
+
+// Stop vac pull button
+void cmd_stopvacuumpull(CommandParameter &Parameters){
+  // Serial debuging
+  //Serial.println("Vacuum pull start command received");
+  vacuumPullStopCommand = true;
 }

@@ -1,16 +1,16 @@
 /**************************************************************************************************
-  Function responsible for moving the piston back to the membrane zero after/before other movements
+  Function responsible for moving the piston to the vacuum position
 
-  Really all tracking movement functions should end here anyway, but it doesn't hurt to be save
+  This is a blocking function!
 
   Walker Nelson
-  2021.8.14
+  2021.8.16
 **************************************************************************************************/
 
 
-void movepistontomembranezero() {
+void movepistontovacuumposition() {
   // Serial debugging
-  Serial.println("Executing Function:     movepistontomembranezero");
+  Serial.println("Executing Function:     movepistontovacuumposition");
 
   // Store old values of move speed and accel
   float oldMoveSpeed = moveSpeed;
@@ -19,11 +19,11 @@ void movepistontomembranezero() {
   // Assign new values of move speed and accel, then send move command to motor
   moveAccel = jogAccel;
   moveSpeed = jogSpeed;
-  targetPosition = membraneZeroPosition;
+  targetPosition = membraneVacuumPosition;
   stepper_movecommand();
 
   // Wait a hot sec
-  delay(2000);
+  delay(4000);
 
   // Restore old values for accel and move speed
   moveSpeed = oldMoveSpeed;

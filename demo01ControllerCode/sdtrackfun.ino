@@ -66,8 +66,9 @@ void sdtrackfun() {
     stepper_stop();
     // Move motor back to the membrane zero position
     movepistontomembranezero();
-    // Set state to idle
+    // Set state to idle & reset button presses
     state = 1;
+    resetstartbuttonpresses();
   }
 }
 

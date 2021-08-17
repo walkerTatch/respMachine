@@ -29,11 +29,20 @@ void idlefun() {
   if (motorSDMoveCommand) {
     if (startupComplete) {
       state = 3;
-
     } else {
       Serial.println("Please complete startup procedure");
     }
     motorSDMoveCommand = false;
+  }
+
+  // If vacuum pull button was pressed, go there
+  if (vacuumPullStartCommand) {
+    if (startupComplete) {
+      state = 4;
+    } else {
+      Serial.println("Please complete startup procedure");
+    }
+    vacuumPullStartCommand = false;
   }
 
   delay(500);

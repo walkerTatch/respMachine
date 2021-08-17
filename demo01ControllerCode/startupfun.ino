@@ -33,7 +33,7 @@ void startupfun() {
     // Valve has been opened -- wait a bit and display the homing message if it was just opened
     if (valveJustOpened) {
       delay(1000);
-      MyPanel.ShowControl(F("DynamicLabel1"));
+      MyPanel.ShowControl(F("homingMessage"));
       valveJustOpened = false;
       delay(1000);
       motorHomeTime = micros();
@@ -49,6 +49,10 @@ void startupfun() {
 
   // Once the motor is homed, display the next buttons/warnings
   if (motorHomed && motorJustHomed) {
+    // Move the motor to the fill position
+    MyPanel.HideControl(F("fillPosMessage"));
+    movepistontofillposition();
+    // Ask the user to close the valve
     MyPanel.ShowControl(F("valveCloseWarning"));
     MyPanel.ShowControl(F("valveClosed"));
     motorJustHomed = false;
@@ -64,9 +68,10 @@ void startupfun() {
     // Clear the errant "start" button presses
     motorSineMoveCommand = false;
     motorSDMoveCommand = false;
-    // Flag the startup as complete and move back to the idle state
+    // Flag the startup as complete, move back to the idle state, and reset button presses
     startupComplete = true;
     state = 1;
+    resetstartbuttonpresses();
   }
 
   delay(500);
@@ -76,7 +81,8 @@ void startupfun() {
 void resetstartuppanelindicators(){
  MyPanel.HideControl(F("valveOpenWarning"));
     MyPanel.HideControl(F("valveOpen"));
-    MyPanel.HideControl(F("DynamicLabel1"));
+    MyPanel.HideControl(F("homingMessage"));
+    MyPanel.HideControl(F("fillPosMessage"));
     MyPanel.HideControl(F("valveCloseWarning"));
     MyPanel.HideControl(F("valveClosed"));
     MyPanel.HideControl(F("startupFinishedMsg"));  

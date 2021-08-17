@@ -70,8 +70,9 @@ byte* moveAccelPtr = (byte*)&moveAccel;
 
 // Physical machine params
 float motorSpeedMax = 12;
-float membraneZeroPosition = 3.5;
-float membraneFillPosition = 3;
+float membraneZeroPosition = 4;
+float membraneFillPosition = 1;
+float membraneVacuumPosition = 0.25;
 float jogSpeed = 3;
 float jogAccel = 10;
 
@@ -85,6 +86,8 @@ boolean motorJogMoveCommand = false;
 boolean motorJogDirection = true;
 boolean motorSineMoveCommand = false;
 boolean motorSDMoveCommand = false;
+boolean vacuumPullStartCommand = false;
+boolean vacuumPullStopCommand = false;
 
 // Startup flow controls
 boolean startupComplete = false;
@@ -126,9 +129,11 @@ void setup() {
   SerialCommandHandler.AddCommand(F("requestHome"),cmd_requesthome);
   SerialCommandHandler.AddCommand(F("stopMove"), cmd_stopmove);
   SerialCommandHandler.AddCommand(F("startMoveButton"), cmd_startmove);
-  SerialCommandHandler.AddCommand(F("changeDir"), cmd_changedir);
+  //SerialCommandHandler.AddCommand(F("changeDir"), cmd_changedir);
   SerialCommandHandler.AddCommand(F("startSine"),cmd_startsine);
   SerialCommandHandler.AddCommand(F("startSD"),cmd_startsd);
+  SerialCommandHandler.AddCommand(F("startVacPull"),cmd_startvacuumpull);
+  SerialCommandHandler.AddCommand(F("stopVacPull"),cmd_stopvacuumpull);
   resetstartuppanelindicators();
 
   // PID

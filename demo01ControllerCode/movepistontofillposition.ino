@@ -1,16 +1,16 @@
 /**************************************************************************************************
-  Function responsible for moving the piston back to the membrane zero after/before other movements
+  Function responsible for moving the piston back to the fill position
 
-  Really all tracking movement functions should end here anyway, but it doesn't hurt to be save
+  Only really used in startup function
 
   Walker Nelson
-  2021.8.14
+  2021.8.16
 **************************************************************************************************/
 
 
-void movepistontomembranezero() {
+void movepistontofillposition() {
   // Serial debugging
-  Serial.println("Executing Function:     movepistontomembranezero");
+  Serial.println("Executing Function:     movepistontofillposition");
 
   // Store old values of move speed and accel
   float oldMoveSpeed = moveSpeed;
@@ -19,7 +19,7 @@ void movepistontomembranezero() {
   // Assign new values of move speed and accel, then send move command to motor
   moveAccel = jogAccel;
   moveSpeed = jogSpeed;
-  targetPosition = membraneZeroPosition;
+  targetPosition = membraneFillPosition;
   stepper_movecommand();
 
   // Wait a hot sec

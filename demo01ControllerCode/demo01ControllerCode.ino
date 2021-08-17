@@ -58,7 +58,7 @@ byte* motorPosSetPointPtr = (byte*)&motorPosSetPoint;
 // Motor Control
 float veryFar = 100;
 float moveSpeed = 0;
-float moveAccel = 25;
+float moveAccel = 100;
 float currentPosition = 0;
 float targetPosition = 0;
 

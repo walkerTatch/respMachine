@@ -11,6 +11,8 @@
 */
 #include <FlexyStepper.h>
 #include <Wire.h>
+#include <SPI.h>
+#include <HighPowerStepperDriver.h>
 
 /*
  * **********************
@@ -18,6 +20,7 @@
  * **********************
 */
 FlexyStepper stepper;
+HighPowerStepperDriver myDriver;
 
 /*
  * ****************
@@ -29,6 +32,9 @@ byte state = 0;           // 0 --> flex move, 1 --> blocking move, 2 --> homing
 
 // Wire Comm Variables
 byte commandByte;
+
+// SPI Variables
+const uint8_t CSPin = 10;
 
 // Movement control bools
 bool moveRequested = false;
@@ -153,6 +159,22 @@ void setup() {
   stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
   stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
 
+  // Stepper driver
+  // Start SPI
+  Serial.println("Setting up Stepper Driver");
+  SPI.begin();
+  myDriver.setChipSelectPin(CSPin);
+  // Reset driver
+  myDriver.resetSettings();
+  myDriver.clearStatus();
+  // Set parameters (taken from Pololu example -- can go up to 3000mA for motor)
+  myDriver.setDecayMode(HPSDDecayMode::AutoMixed);
+  myDriver.setCurrentMilliamps36v4(3000);
+  myDriver.setStepMode(HPSDStepMode::MicroStep4);
+  // Enable driver
+  Serial.println("Enabling Stepper Driver");
+  myDriver.enableDriver();
+  
   // I2C communication
   Serial.println("Starting Wire Communication");
   Wire.begin(9);
@@ -185,8 +207,9 @@ void loop() {
 // Function for going home
 void homefun() {
   // Home command
-  stepper.moveToHomeInSteps(-1, 800, 8000, 9);
+  stepper.moveToHomeInRevolutions(1, 3, 100, 9);
   // End by going into the normal movement state
+  stepper.setCurrentPositionInRevolutions(35.25);
   blockingMoveDone = true;
   delay(100);
   state = 0;

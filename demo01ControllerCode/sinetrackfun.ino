@@ -30,6 +30,7 @@ void sinetrackfun() {
   if (timeNow - lastSampleTime > sampleUpdateIntUs) {
     motorPosSetPoint = sineVal + membraneZeroPosition;
     stepper_getposition();
+    encoder_getposition();
     lastSampleTime = timeNow;
   }
 

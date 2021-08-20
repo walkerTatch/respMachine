@@ -17,6 +17,7 @@ void movephasesetup() {
 
   // Make sure we're at the correct starting position
   stepper_getposition();
+  encoder_getposition();  
   if (currentPosition != membraneZeroPosition) {
     movepistontomembranezero();
   }

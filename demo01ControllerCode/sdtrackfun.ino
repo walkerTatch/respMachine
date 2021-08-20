@@ -27,7 +27,7 @@ void sdtrackfun() {
   // Take the time;
   timeNow = micros();
 
-  // If our sample update period has been hit, sample the SD card and the motor position
+  // If our sample update period has been hit, sample the SD card, the motor position, and the encoder position
   if (timeNow - lastSampleTime > sampleUpdateIntUs) {
     
     // Try to read from SD card
@@ -37,6 +37,7 @@ void sdtrackfun() {
     if (couldRead) {
       motorPosSetPoint += membraneZeroPosition;
       stepper_getposition();
+      encoder_getposition();
       
     // Couldn't read? File is done -- stop movement
     } else {

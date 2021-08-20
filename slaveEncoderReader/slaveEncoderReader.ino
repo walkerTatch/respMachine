@@ -86,8 +86,10 @@ void setup() {
 // Looping function just reads the encoder as fast as it can
 void loop() {
   currentPositionTicks = myEnc.read();
-  currentPositionLinear = currentPositionTicks*mmPerIndex;
-  Serial.println(currentPositionLinear);
+  
+  // Debugging
+//  currentPositionLinear = currentPositionTicks*mmPerIndex;
+//  Serial.println(currentPositionLinear);
 }
 
 /*

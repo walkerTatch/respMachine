@@ -55,6 +55,9 @@ uint8_t chipSelect = 10;
 File testFile;
 byte* motorPosSetPointPtr = (byte*)&motorPosSetPoint;
 
+// Membrane Position
+float membranePosition = 0;     // Millimeters
+
 // Motor Control
 float veryFar = 100;
 float moveSpeed = 0;
@@ -67,6 +70,7 @@ int movAvgIndex = 0;
 float minPositionErrToMove = 0.0025;
 
 // Wire Transmission Stuff
+byte* membPosPtr = (byte*)&membranePosition;
 byte* currPosPtr = (byte*)&currentPosition;
 byte* targetPosPtr = (byte*)&targetPosition;
 byte* moveSpeedPtr = (byte*)&moveSpeed;
@@ -149,6 +153,7 @@ void setup() {
 
 }
 
+// Handles the state switching
 void loop() {
   SerialCommandHandler.Process();
   // State machine goes here

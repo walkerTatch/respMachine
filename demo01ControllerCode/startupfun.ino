@@ -58,6 +58,8 @@ void startupfun() {
     // Wait a second and then move the piston to the correct neutral position
     delay(1000);
     movepistontomembranezero();
+    // Reset the membrane position sensor
+    encoder_zero();
     // Then show that we are done
     MyPanel.ShowControl(F("startupFinishedMsg"));
     // Flag the startup as complete, move back to the idle state, and reset button presses

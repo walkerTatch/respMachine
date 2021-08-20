@@ -12,4 +12,5 @@ void senddatatoplot() {
   MyPlot.SendData(F("Current Position"), currentPosition);
   //MyPlot.SendData(F("Motor Speed"), moveSpeed);
   MyPlot.SendData(F("Target Position"), motorPosSetPoint);
+  MyPlot.SendData(F("Membrane Position"), membranePosition);
 }

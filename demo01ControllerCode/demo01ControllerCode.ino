@@ -59,25 +59,33 @@ byte* motorPosSetPointPtr = (byte*)&motorPosSetPoint;
 float membranePosition = 0;     // Millimeters
 
 // Motor Control
+// Global
 float veryFar = 100;
-float moveSpeed = 0;
-float moveAccel = 20;
 float currentPosition = 0;
 float targetPosition = 0;
+// Jogging/Manual control
+float jogDistManual = 0;
+float jogSpeedManual = 0;
+float jogAccelManual = 0;
+// PID tracking
+float moveSpeed = 0;
+float moveAccel = 20;
 const int numSamplesToAvg = 20;
 float movAvgBuff[numSamplesToAvg];
 int movAvgIndex = 0;
 float minPositionErrToMove = 0.0025;
 
 // Wire Transmission Stuff
+// Encoder arduino
 byte* membPosPtr = (byte*)&membranePosition;
+// Motor control arduino
 byte* currPosPtr = (byte*)&currentPosition;
 byte* targetPosPtr = (byte*)&targetPosition;
 byte* moveSpeedPtr = (byte*)&moveSpeed;
 byte* moveAccelPtr = (byte*)&moveAccel;
 uint32_t blockingFunctionTimeoutMs = 30000;
 
-// Physical machine params
+// Physical machine params (Units in revolutions or derivatives)
 float motorSpeedMax = 12;
 float membraneZeroPosition = 30;
 float membraneFillPosition = 2;
@@ -86,15 +94,23 @@ float jogSpeed = 5;
 float jogAccel = 10;
 
 // Megunolink control params
+// Global
+boolean motorStopCommand = false;
+// Startup panel
 boolean beginStartupCommand = false;
 boolean valveOpenedConfirmation = false;
 boolean valveClosedConfirmation = false;
+// Jog
+boolean toggleJogOnOff = false;
 boolean motorHomeCommand = false;
-boolean motorStopCommand = false;
+boolean motorZeroCommand = false;
+boolean encoderZeroCommand = false;
 boolean motorJogMoveCommand = false;
-boolean motorJogDirection = true;
+// Sine
 boolean motorSineMoveCommand = false;
+// SD
 boolean motorSDMoveCommand = false;
+// Vacuum pull
 boolean vacuumPullStartCommand = false;
 boolean vacuumPullStopCommand = false;
 
@@ -109,7 +125,7 @@ boolean motorJustHomed = true;
   Library Objects:
 *****************/
 // Meguno commands
-CommandHandler<> SerialCommandHandler;
+CommandHandler<15> SerialCommandHandler;
 // PID
 QuickPID myPID(&currentPosition, &moveSpeed, &motorPosSetPoint, Kp, Ki, Kd, QuickPID::DIRECT);
 // Plotting
@@ -132,18 +148,27 @@ void setup() {
   Wire.setClock(400000);
 
   // Meguno buttons
+  // Global
+  SerialCommandHandler.AddCommand(F("stopMove"), cmd_stopmove);
+  // Startup
   SerialCommandHandler.AddCommand(F("beginStartup"),cmd_beginstartup);
   SerialCommandHandler.AddCommand(F("valveOpen"),cmd_valveopenconfirmation);
   SerialCommandHandler.AddCommand(F("valveClosed"),cmd_valveclosedconfirmation);
+  resetstartuppanelindicators();
+  // Jog
+  SerialCommandHandler.AddCommand(F("jogOnOff"),cmd_jogonoff);
+  SerialCommandHandler.AddCommand(F("startJog"), cmd_startjog);
+  SerialCommandHandler.AddCommand(F("requestMotorZero"),cmd_requestmotorzero);
+  SerialCommandHandler.AddCommand(F("requestEncoderZero"),cmd_requestencoderzero);
   SerialCommandHandler.AddCommand(F("requestHome"),cmd_requesthome);
-  SerialCommandHandler.AddCommand(F("stopMove"), cmd_stopmove);
-  SerialCommandHandler.AddCommand(F("startMoveButton"), cmd_startmove);
-  //SerialCommandHandler.AddCommand(F("changeDir"), cmd_changedir);
+  MyPanel.SetIndicator(F("motorOnIndicator"),false);
+  // Sine
   SerialCommandHandler.AddCommand(F("startSine"),cmd_startsine);
+  // SD
   SerialCommandHandler.AddCommand(F("startSD"),cmd_startsd);
+  // Vacuum pull
   SerialCommandHandler.AddCommand(F("startVacPull"),cmd_startvacuumpull);
   SerialCommandHandler.AddCommand(F("stopVacPull"),cmd_stopvacuumpull);
-  resetstartuppanelindicators();
 
   // PID
   pidsetup();
@@ -183,5 +208,10 @@ void loop() {
       vacuumpullfun();
       prevState = 4;
     break;
+    // State 5 is jog move
+    case 5:
+      jogfun();
+      prevState = 5;
+      break;
   }
 }

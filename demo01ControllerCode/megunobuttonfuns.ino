@@ -1,19 +1,28 @@
 /****************************************************************************************************************
-  This is a set of functions which are called when 
+  This is a set of functions which are called when
 
   Walker Nelson
   2021.8.14
 ****************************************************************************************************************/
 
 /******
-Global:
+  Global:
 ******/
 // Helper function resets the start commands -- call when exiting a state so new commands don't start immediately
-void resetstartbuttonpresses(){
-beginStartupCommand = false;
-motorSineMoveCommand = false;
-motorSDMoveCommand = false;
-vacuumPullStartCommand = false;
+void resetstartbuttonpresses() {
+  // Jog
+  toggleJogOnOff = false;
+  motorHomeCommand = false;
+  motorZeroCommand = false;
+  motorJogMoveCommand = false;
+  // Startup
+  beginStartupCommand = false;
+  // Sine
+  motorSineMoveCommand = false;
+  // SD
+  motorSDMoveCommand = false;
+  // Vacuum
+  vacuumPullStartCommand = false;
 }
 
 // Stop move button
@@ -24,58 +33,72 @@ void cmd_stopmove(CommandParameter &Parameters) {
 }
 
 /***********************
-Startup Procedure Panel:
+  Startup Procedure Panel:
 ***********************/
 // Startup procedure begin button
-void cmd_beginstartup(){
+void cmd_beginstartup() {
   // Serial debugging
   //Serial.println("Begin startup procedure command received";
   beginStartupCommand = true;
 }
 
 // Startup procedure begin button
-void cmd_valveopenconfirmation(){
+void cmd_valveopenconfirmation() {
   // Serial debugging
   //Serial.println("Valve open confirmation command received";
   valveOpenedConfirmation = true;
 }
 
 // Startup procedure begin button
-void cmd_valveclosedconfirmation(){
+void cmd_valveclosedconfirmation() {
   // Serial debugging
   //Serial.println("Begin startup procedure command received";
   valveClosedConfirmation = true;
 }
 
 /*********
-Jog Panel:
+  Jog Panel:
 *********/
+// Manual control on/off toggle
+void cmd_jogonoff(CommandParameter &Parameters) {
+  // Serial debugging
+  Serial.println("Manual control on/off switch toggled");
+  toggleJogOnOff = true;
+}
 
 // Start jog move button
-void cmd_startmove(CommandParameter &Parameters) {
+void cmd_startjog(CommandParameter &Parameters) {
   // Serial debugging
-  //Serial.println("Motor jog move command received");
-  moveSpeed = Parameters.NextParameterAsDouble();
-  moveAccel = Parameters.NextParameterAsDouble();
+  Serial.println("Motor jog move command received");
+  jogDistManual = Parameters.NextParameterAsDouble();
+  jogSpeedManual = Parameters.NextParameterAsDouble();
+  jogAccelManual = Parameters.NextParameterAsDouble();
   motorJogMoveCommand = true;
 }
 
-// Fwd/rev button
-void cmd_changedir(CommandParameter &Parameters) {
+// Motor zero button
+void cmd_requestmotorzero(CommandParameter &Parameters) {
   // Serial debugging
-  //Serial.println("Motor direction flip command received");
-  motorJogDirection = !motorJogDirection;
+  Serial.println("Motor zero request received");
+ motorZeroCommand = true;   
+}
+
+// Encoder zero button
+void cmd_requestencoderzero(CommandParameter &Parameters) {
+  // Serial debugging
+  Serial.println("Motor zero request received");
+ encoderZeroCommand = true;   
 }
 
 // Home button
-void cmd_requesthome(CommandParameter &Parameters){
+void cmd_requesthome(CommandParameter &Parameters) {
   // Serial debugging
-  //Serial.println("Homing request received");
+  Serial.println("Homing request received");
   motorHomeCommand = true;
 }
 
 /***************
-Sine Wave Panel:
+  Sine Wave Panel:
 ***************/
 // Start sine move button
 void cmd_startsine(CommandParameter &Parameters) {
@@ -87,7 +110,7 @@ void cmd_startsine(CommandParameter &Parameters) {
 }
 
 /**************
-SD Track Panel:
+  SD Track Panel:
 **************/
 // Start sd move button
 void cmd_startsd(CommandParameter &Parameters) {
@@ -97,17 +120,17 @@ void cmd_startsd(CommandParameter &Parameters) {
 }
 
 /**************
-Vac Pull Panel:
+  Vac Pull Panel:
 **************/
 // Start vac pull button
-void cmd_startvacuumpull(CommandParameter &Parameters){
+void cmd_startvacuumpull(CommandParameter &Parameters) {
   // Serial debuging
   //Serial.println("Vacuum pull start command received");
   vacuumPullStartCommand = true;
 }
 
 // Stop vac pull button
-void cmd_stopvacuumpull(CommandParameter &Parameters){
+void cmd_stopvacuumpull(CommandParameter &Parameters) {
   // Serial debuging
   //Serial.println("Vacuum pull start command received");
   vacuumPullStopCommand = true;

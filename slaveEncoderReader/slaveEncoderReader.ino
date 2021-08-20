@@ -72,11 +72,11 @@ void parsecommand(int numBytes) {
 */
 void setup() {
   // Serial debugging
-  Serial.begin(115200);
-  Serial.println("Welcome to the encoder script!");
+  //Serial.begin(115200);
+  //Serial.println("Welcome to the encoder script!");
 
   // Connect to I2C
-  Serial.println("Connecting to I2C");
+  //Serial.println("Connecting to I2C");
   Wire.begin(8);
   Wire.setClock(400000);
   Wire.onReceive(parsecommand);
@@ -88,8 +88,8 @@ void loop() {
   currentPositionTicks = myEnc.read();
   
   // Debugging
-//  currentPositionLinear = currentPositionTicks*mmPerIndex;
-//  Serial.println(currentPositionLinear);
+  currentPositionLinear = currentPositionTicks*mmPerIndex;
+  //Serial.println(currentPositionLinear);
 }
 
 /*
@@ -100,7 +100,7 @@ void loop() {
 // Function resets the arduino --> sometime in the future ;D
 void resetcommand() {
   // Serial debugging
-  Serial.println("Reset Command Received");
+  //Serial.println("Reset Command Received");
   zerocommand();
 }
 
@@ -108,6 +108,6 @@ void resetcommand() {
 // Function zeros out the encoder position
 void zerocommand() {
   // Serial debugging
-  Serial.println("Zero Command Received");
-  currentPositionTicks = 0;
+  //Serial.println("Zero Command Received");
+  myEnc.write(0);
 }

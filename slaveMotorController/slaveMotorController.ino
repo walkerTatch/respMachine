@@ -169,7 +169,7 @@ void setup() {
   myDriver.clearStatus();
   // Set parameters (taken from Pololu example -- can go up to 3000mA for motor)
   myDriver.setDecayMode(HPSDDecayMode::AutoMixed);
-  myDriver.setCurrentMilliamps36v4(3000);
+  myDriver.setCurrentMilliamps36v4(2000);
   myDriver.setStepMode(HPSDStepMode::MicroStep4);
   // Enable driver
   Serial.println("Enabling Stepper Driver");

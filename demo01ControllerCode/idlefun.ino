@@ -45,5 +45,11 @@ void idlefun() {
     vacuumPullStartCommand = false;
   }
 
+  // If jog panel was activated, go there
+  if (toggleJogOnOff){
+    state = 5;
+    toggleJogOnOff = false;
+  }
+
   delay(500);
 }

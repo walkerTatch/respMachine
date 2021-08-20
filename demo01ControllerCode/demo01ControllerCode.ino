@@ -58,7 +58,7 @@ byte* motorPosSetPointPtr = (byte*)&motorPosSetPoint;
 // Motor Control
 float veryFar = 100;
 float moveSpeed = 0;
-float moveAccel = 100;
+float moveAccel = 20;
 float currentPosition = 0;
 float targetPosition = 0;
 
@@ -71,10 +71,10 @@ uint32_t blockingFunctionTimeoutMs = 30000;
 
 // Physical machine params
 float motorSpeedMax = 12;
-float membraneZeroPosition = 4;
-float membraneFillPosition = 1;
+float membraneZeroPosition = 30;
+float membraneFillPosition = 2;
 float membraneVacuumPosition = 0.25;
-float jogSpeed = 3;
+float jogSpeed = 5;
 float jogAccel = 10;
 
 // Megunolink control params

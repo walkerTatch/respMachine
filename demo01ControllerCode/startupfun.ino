@@ -45,7 +45,7 @@ void startupfun() {
   // Once the motor is homed, display the next buttons/warnings
   if (motorHomed && motorJustHomed) {
     // Move the motor to the fill position
-    MyPanel.HideControl(F("fillPosMessage"));
+    MyPanel.ShowControl(F("fillPosMessage"));
     movepistontofillposition();
     // Ask the user to close the valve
     MyPanel.ShowControl(F("valveCloseWarning"));

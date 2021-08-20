@@ -22,6 +22,7 @@ void vacuumpullfun(){
   delay(50);
   // If the user stops the pull, go back to the normal position, return to the idle state, and reset the button presses
   if (vacuumPullStopCommand){
+    vacuumPullStopCommand = false;
     movepistontomembranezero();
     state = 1;
     resetstartbuttonpresses();

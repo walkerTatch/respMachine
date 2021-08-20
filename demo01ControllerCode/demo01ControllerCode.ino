@@ -61,6 +61,10 @@ float moveSpeed = 0;
 float moveAccel = 20;
 float currentPosition = 0;
 float targetPosition = 0;
+const int numSamplesToAvg = 20;
+float movAvgBuff[numSamplesToAvg];
+int movAvgIndex = 0;
+float minPositionErrToMove = 0.0025;
 
 // Wire Transmission Stuff
 byte* currPosPtr = (byte*)&currentPosition;

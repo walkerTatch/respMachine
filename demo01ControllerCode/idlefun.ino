@@ -9,6 +9,11 @@ void idlefun() {
   // Serial debugging
   Serial.println("Idle....");
 
+  // Check on the membrane and motor position
+  stepper_getposition();
+  encoder_getposition();
+  
+
   // If the startup procedure was initialized, go there
   if (beginStartupCommand) {
     state = 0;
@@ -51,5 +56,6 @@ void idlefun() {
     toggleJogOnOff = false;
   }
 
+  // Delay so we don't spam the message log too much
   delay(500);
 }

@@ -28,9 +28,6 @@ void jogfun(){
     // Get positions
     stepper_getposition();
     encoder_getposition();
-    // Report positions
-    MyPanel.SetText(F("motorPos"), currentPosition);
-    MyPanel.SetText(F("membranePos"), membranePositionMM);
     lastSampleTime = timeNow;
   }
   // If there is a stop, do that

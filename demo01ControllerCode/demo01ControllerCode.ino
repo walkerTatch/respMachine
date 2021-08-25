@@ -69,6 +69,7 @@ float targetPosition = 0;
 float jogDistManual = 0;
 float jogSpeedManual = 0;
 float jogAccelManual = 0;
+byte blockingMoveDone = 0;
 // PID tracking
 float moveSpeed = 0;
 float moveAccel = 20;
@@ -98,6 +99,7 @@ float jogAccel = 10;
 // Megunolink control params
 // Global
 boolean motorStopCommand = false;
+boolean updateJogPanelCoordinates = true;
 // Startup panel
 boolean beginStartupCommand = false;
 boolean valveOpenedConfirmation = false;

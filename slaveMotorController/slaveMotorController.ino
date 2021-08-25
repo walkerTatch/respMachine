@@ -28,35 +28,42 @@ HighPowerStepperDriver myDriver;
  * ****************
 */
 // State control variables
-byte state = 0;           // 0 --> flex move, 1 --> blocking move, 2 --> homing
+byte state = 0;               // 0 --> idle, 1 --> moving, 2 --> homing
+byte prevState = 0;
 
-// Wire Comm Variables
-byte commandByte;
-
-// SPI Variables
-const uint8_t CSPin = 10;
-
-// Movement control bools
+// Movement control flags
 bool moveRequested = false;
+bool homeRequested = false;
 bool moveDone = false;
-bool stopRequested = false;
-bool blockingMoveDone = false;
+
+// Stepper params
+const long idleCurrent = 500;
+const long fullCurrent = 2000;
 
 // Movement control params
-const int MOTOR_STEP_PIN = 7;
-const int MOTOR_DIRECTION_PIN = 8;
-byte homeDir = -1;
-float homeSpeed = 2.5;
-long maxHomeDistance = 40;
+// Homing phase
+const byte homeDir = -1;
+const float homeSpeed = 2.5;
+const long maxHomeDistance = 40;
+const float homeSwitchPositionRev = 35.25;
+// Movement phase
 float targetPos;
 float moveSpeed = 10;
 float moveAccel = 10;
 float currentPos;
+// Idle phase
+bool powerSave = false;
+const uint32_t powerSaveTimeoutMillis = 100000;
+uint32_t idleStateStart = 0;
 
-// Physical inputs
-int limitSwitchPin = 9;
+// Pin declarations
+const int MOTOR_STEP_PIN = 7;
+const int MOTOR_DIRECTION_PIN = 8;
+const int limitSwitchPin = 9;
+const uint8_t CSPin = 10;
 
 // Wire transmission stuff
+byte commandByte;
 byte* currPosPtr = (byte*)&currentPos;
 byte* targetPosPtr = (byte*)&targetPos;
 byte* moveSpeedPtr = (byte*)&moveSpeed;
@@ -71,6 +78,7 @@ byte* moveAccelPtr = (byte*)&moveAccel;
 void parsecommand(int numBytes) {
   // Get the command byte
   commandByte = Wire.read();
+  Serial.println(commandByte);
   // Do a different command depending on what was sent
   switch (commandByte) {
     // Reset the arduino
@@ -87,14 +95,10 @@ void parsecommand(int numBytes) {
       break;
     // Flex move command
     case 3:
-      flexmovecommand();
-      break;
-    // Blocking move command
-    case 4:
-      blockingmovecommand();
+      movecommand();
       break;
     // Home command
-    case 5:
+    case 4:
       homecommand();
       break;
   }
@@ -116,31 +120,18 @@ void readmoveparams() {
   stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
   stepper.setSpeedInRevolutionsPerSecond(moveSpeed);
   stepper.setTargetPositionInRevolutions(targetPos);
-  if (moveSpeed != 0) {
-    moveRequested = true;
-  } else {
-    moveRequested = false;
-  }
 }
 
 // Function to run when a value is requested
-void requesthandler(){
-  // If we're in a flexy move, always send the motor position
-  if (state == 0) {
-    sendcurrentmotorpos();
-  // If we're in a blocking move, send the state of the blocking move
-  } else {
-    Wire.write(blockingMoveDone);
-  }
-}
-
-// Sends back the motor position
-void sendcurrentmotorpos() {
-  //Serial.println("Data Requested");
+// Always sends back the current motor position followed by a byte representing the "moveDone" flag
+void requesthandler() {
+  // Get the motor position & send it back
+  currentPos = stepper.getCurrentPositionInRevolutions();
   for (byte i = 0; i < sizeof(float); i++) {
     Wire.write(currPosPtr[i]);
   }
-  //Serial.println(currentPos);
+  // Send back the "moveDone" flag as a byte
+  Wire.write((byte)moveDone);
 }
 
 /*
@@ -169,12 +160,12 @@ void setup() {
   myDriver.clearStatus();
   // Set parameters (taken from Pololu example -- can go up to 3000mA for motor)
   myDriver.setDecayMode(HPSDDecayMode::AutoMixed);
-  myDriver.setCurrentMilliamps36v4(2000);
+  myDriver.setCurrentMilliamps36v4(idleCurrent);
   myDriver.setStepMode(HPSDStepMode::MicroStep4);
   // Enable driver
   Serial.println("Enabling Stepper Driver");
   myDriver.enableDriver();
-  
+
   // I2C communication
   Serial.println("Starting Wire Communication");
   Wire.begin(9);
@@ -186,17 +177,20 @@ void setup() {
 void loop() {
   // Check the state
   switch (state) {
-    // Flex move state
+    // Idle state
     case 0:
-      flexmovefun();
+      idlefun();
+      prevState = 0;
       break;
-    // Blocking move state
+    // Moving state
     case 1:
-      blockingmovefun();
+      movefun();
+      prevState = 1;
       break;
-    // Homing State
+    // Homing state
     case 2:
       homefun();
+      prevState = 2;
       break;
   }
 }
@@ -204,51 +198,63 @@ void loop() {
 /***********************
   Functions for Movement:
  **********************/
-// Function for going home
-void homefun() {
-  // Home command
-  stepper.moveToHomeInRevolutions(1, 3, 100, 9);
-  // End by going into the normal movement state
-  stepper.setCurrentPositionInRevolutions(35.25);
-  blockingMoveDone = true;
-  delay(100);
-  state = 0;
+// Function for idling the motor at a lower current so it doesn't remain at full power when not moving
+void idlefun() {
+  // If this is the first time in the state, start a timer for killing motor power
+  if (prevState != state) {
+    idleStateStart = millis();
+    Serial.println(idleStateStart);
+  }
+
+  // Check the timer and see if we need to kill power
+  if ((millis() - idleStateStart > powerSaveTimeoutMillis) && !powerSave) {
+    Serial.println("Entering power save mode");
+    powerSave = true;
+    myDriver.setCurrentMilliamps36v4(idleCurrent);
+  }
+
+  // If there is a move operation requested do that
+  if (moveRequested) {
+    moveRequested = false;
+    powerSave = false;
+    Serial.println("Upping Motor Current");
+    myDriver.setCurrentMilliamps36v4(fullCurrent);
+    state = 1;
+  }
+  
+  // If there is a home operation requested do that
+  if (homeRequested) {
+    homeRequested = false;
+    powerSave = false;
+    Serial.println("Upping Motor Current");
+    myDriver.setCurrentMilliamps36v4(fullCurrent);
+    state = 2;
+  }
 }
 
-// Function checks if we need to move, then does it if necessary -- keeps the main looping function open so that the state and move parameters can be updated mid move
-void flexmovefun() {
-  if (moveRequested && moveSpeed != 0) {
+// Function checks if we need to move, continues to move until it finishes or the stop command is called
+void movefun() {
+  if (moveSpeed != 0) {
     // Execute the move -- keep exiting this function and coming back
     if (!stepper.motionComplete()) {
       moveDone = stepper.processMovement();
-      currentPos = stepper.getCurrentPositionInRevolutions();
-      // Stop if we are done
-      if (moveDone || stopRequested) {
-        // Reset all of our flags to zero
-        moveRequested = false;
-        moveDone = false;
-        stopRequested = false;
-      }
+    }
+    // Stop if we are done
+    if (moveDone) {
+      // Go into the idle state
+      state = 0;
     }
   }
 }
 
-// Function checks if we need to move, then does it -- BLOCKING! Waits until the move is done, then sends a confirmation byte to the master arduino
-void blockingmovefun() {
-  if (moveRequested && moveSpeed != 0) {
-    // Do the move, but don't break out of this function
-    while (!stepper.motionComplete() && !stopRequested) {
-      stepper.processMovement();
-      currentPos = stepper.getCurrentPositionInRevolutions();
-    }
-    // Reset flags to zero
-    moveRequested = false;
-    moveDone = false;
-    stopRequested = false;
-  }
-  // Change the move state to true
-  blockingMoveDone = true;
-  delay(100);
+// Function homes the motor
+void homefun() {
+  // Home command
+  stepper.moveToHomeInRevolutions(1, 3, 100, 9);
+  // Set to the correct position
+  stepper.setCurrentPositionInRevolutions(homeSwitchPositionRev);
+  // Send a flag, wait, and go straight to idle
+  moveDone = true;
   state = 0;
 }
 
@@ -276,30 +282,24 @@ void zerocommand() {
 void stopcommand() {
   // Serial debugging
   Serial.println("Stop Command Received");
-  stopRequested = true;
-}
-
-// Function starts a non-blocking move
-void flexmovecommand() {
-  // Serial debugging
-  Serial.println("Flex Move Command Received");
-  readmoveparams();
   state = 0;
+  moveDone = true;
+  moveRequested = false;
 }
 
-// Function starts a blocking move
-void blockingmovecommand() {
+// Function starts a move
+void movecommand() {
   // Serial debugging
-  Serial.println("Blocking Move Command Received");
+  Serial.println("Move Command Received");
+  moveRequested = true;
   readmoveparams();
-  state = 1;
-  blockingMoveDone = false;
+  moveDone = false;
 }
 
 // Function starts a homing move
 void homecommand() {
   // Serial debugging
   Serial.println("Home Move Command Received");
-  state = 2;
-  blockingMoveDone = false;
+  homeRequested = true;
+  moveDone = false;  
 }

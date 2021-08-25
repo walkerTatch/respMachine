@@ -13,7 +13,7 @@ void sdtrackfun() {
   if (prevState != state) {
 
     // Setup for the movement phase
-    movephasesetup();
+    movephasesetupprotocol();
 
     // Open the file
     testFile = SD.open("dat.txt");
@@ -63,13 +63,8 @@ void sdtrackfun() {
   if (motorStopCommand) {
     // Reset button state
     motorStopCommand = false;
-    // Stop the motor
-    stepper_stop();
-    // Move motor back to the membrane zero position
-    movepistontomembranezero();
-    // Set state to idle & reset button presses
-    state = 1;
-    resetstartbuttonpresses();
+    // Trigger the tracking move phase exit protocol
+    movephaseexitprotocol();
   }
 }
 

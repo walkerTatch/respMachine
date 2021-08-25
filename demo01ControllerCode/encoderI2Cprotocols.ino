@@ -17,7 +17,11 @@ void encoder_getposition() {
     membPosPtr[ii] = Wire.read();
     ii++;
   }
-  membranePositionMM = membranePositionTicks*millimetersPerTick;
+  membranePositionMM = membranePositionTicks * millimetersPerTick;
+  // Send to panel automatically
+  if (updateJogPanelCoordinates) {
+    MyPanel.SetText(F("membranePos"), membranePositionMM);
+  }
 }
 
 // Then commands which can be sent to the slave arduino are defined

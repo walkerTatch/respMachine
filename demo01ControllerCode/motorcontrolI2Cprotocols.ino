@@ -11,17 +11,23 @@
 void stepper_getposition() {
   // Serial debugging
   //Serial.println("Executing Function:     stepper_getposition");
-  Wire.requestFrom(9, 4);
-  int ii = 0;
-  while (Wire.available() > 0) {
+  // Ask for the position (float) and the "moveDone" byte
+  Wire.requestFrom(9, 5);
+  // Get the float
+  for (int ii = 0; ii < 4; ii++) {
     currPosPtr[ii] = Wire.read();
-    ii++;
+  }
+  // Get the moveDone byte
+  blockingMoveDone = Wire.read();
+  // Send to PC
+  if (updateJogPanelCoordinates) {
+    MyPanel.SetText(F("motorPos"), currentPosition);
   }
 }
 
 // Then commands which can be sent to the slave arduino are defined
 
-// Flex move command
+// Move command
 void stepper_movecommand() {
   // Serial debugging
   //Serial.println("Executing Function:     stepper_movecommand");
@@ -46,10 +52,10 @@ void stepper_movecommand() {
 }
 
 // Blocking Move Command
-void stepper_moveandwaitcommand(byte* targetPos, byte* movSpd, byte* movAcc){
-   Wire.beginTransmission(9);
+void stepper_moveandwaitcommand(byte* targetPos, byte* movSpd, byte* movAcc) {
+  Wire.beginTransmission(9);
   // Send the correct command identifier
-  byte cmdByte = 4;
+  byte cmdByte = 3;
   Wire.write(cmdByte);
   // Send the data
   for (byte i = 0; i < sizeof(float); i++) {
@@ -110,7 +116,7 @@ void stepper_home() {
   //Serial.println("Executing Function:     stepper_home");
   // Just have to send the correct command byte, no params necessary
   Wire.beginTransmission(9);
-  byte cmdByte = 5;
+  byte cmdByte = 4;
   Wire.write(cmdByte);
   Wire.endTransmission(9);
   // Wait for the return byte from the motor control arduino
@@ -125,11 +131,19 @@ bool waitforunblockingbyte() {
   uint32_t startMs = millis();
   bool timeout = false;
   bool moveDone = false;
- // Wait until a byte becomes available on the I2C bus. If it doesn't, timeout and return
-  while(!moveDone && !timeout) {
-    Wire.requestFrom(9,1);
-    moveDone = Wire.read();
+  // Reset blockingMoveDone
+  blockingMoveDone = 0;
+  // Continuously poll
+  while (!moveDone && !timeout) {
+    // Small delay
     delay(50);
+    // Read position and move status
+    stepper_getposition();
+    // If the move status is done, exit the loop
+    if (blockingMoveDone == 1) {
+      moveDone = true;
+    }
+    // If it has taken too long, exit the loop
     if ((millis() - startMs) > blockingFunctionTimeoutMs) {
       timeout = true;
     }

@@ -10,7 +10,6 @@
    Include Libraries
  * *****************
 */
-#define ENCODER_OPTIMIZE_INTERRUPTS
 #include <Encoder.h>
 #include <Wire.h>
 
@@ -27,11 +26,9 @@ Encoder myEnc(2, 3);
  * ****************
 */
 // Numbers & such
-long currentPositionTicks = 0;
-float currentPositionLinear = 0;
-const float mmPerIndex = PI*0.5*25.4/4096;
+int32_t currentPositionTicks = 0;
 // Wire transmission things
-byte* currPosLinPtr = (byte*)&currentPositionLinear;
+byte* currPosTicksPtr = (byte*)&currentPositionTicks;
 byte commandByte;
 
 
@@ -42,9 +39,8 @@ byte commandByte;
 */
 // Function to run when a value is requested
 void requesthandler(){
-  currentPositionLinear = currentPositionTicks*mmPerIndex;
-  for (byte i = 0; i < sizeof(float); i++) {
-    Wire.write(currPosLinPtr[i]);
+  for (byte i = 0; i < sizeof(int32_t); i++) {
+    Wire.write(currPosTicksPtr[i]);
   }
 }
 
@@ -88,8 +84,7 @@ void loop() {
   currentPositionTicks = myEnc.read();
   
   // Debugging
-  currentPositionLinear = currentPositionTicks*mmPerIndex;
-  //Serial.println(currentPositionLinear);
+  //Serial.println(currentPositionTicks);
 }
 
 /*

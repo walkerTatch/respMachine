@@ -17,6 +17,7 @@ void encoder_getposition() {
     membPosPtr[ii] = Wire.read();
     ii++;
   }
+  membranePositionMM = membranePositionTicks*millimetersPerTick;
 }
 
 // Then commands which can be sent to the slave arduino are defined

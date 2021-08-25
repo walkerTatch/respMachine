@@ -56,7 +56,9 @@ File testFile;
 byte* motorPosSetPointPtr = (byte*)&motorPosSetPoint;
 
 // Membrane Position
-float membranePosition = 0;     // Millimeters
+int32_t membranePositionTicks = 0;     // Encoder Ticks
+float millimetersPerTick = 0.0121;      // Calibration factor
+float membranePositionMM = 0;           // Position in millimeters
 
 // Motor Control
 // Global
@@ -77,7 +79,7 @@ float minPositionErrToMove = 0.0025;
 
 // Wire Transmission Stuff
 // Encoder arduino
-byte* membPosPtr = (byte*)&membranePosition;
+byte* membPosPtr = (byte*)&membranePositionTicks;
 // Motor control arduino
 byte* currPosPtr = (byte*)&currentPosition;
 byte* targetPosPtr = (byte*)&targetPosition;

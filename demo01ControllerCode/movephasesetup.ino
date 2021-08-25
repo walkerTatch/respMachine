@@ -10,7 +10,7 @@ void movephasesetupprotocol() {
   Serial.println("Executing Function:     movephasesetup");
 
   // Stop updating on the jog panel since there will be a plot
-  updateJogPanelCoordinates = true;
+  updateJogPanelCoordinates = false;
 
   // Wait a short time
   delay(500);

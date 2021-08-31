@@ -57,7 +57,7 @@ byte* motorPosSetPointPtr = (byte*)&motorPosSetPoint;
 
 // Membrane Position
 int32_t membranePositionTicks = 0;     // Encoder Ticks
-float millimetersPerTick = 0.0121;      // Calibration factor
+float millimetersPerTick = 0.01215;      // Calibration factor
 float membranePositionMM = 0;           // Position in millimeters
 
 // Motor Control
@@ -72,11 +72,11 @@ float jogAccelManual = 0;
 byte blockingMoveDone = 0;
 // PID tracking
 float moveSpeed = 0;
-float moveAccel = 20;
-const int numSamplesToAvg = 20;
+float moveAccel = 30;
+const int numSamplesToAvg = 10;
 float movAvgBuff[numSamplesToAvg];
 int movAvgIndex = 0;
-float minPositionErrToMove = 0.0025;
+float minPositionErrToMove = 0.000025;
 
 // Wire Transmission Stuff
 // Encoder arduino

@@ -59,7 +59,7 @@ uint32_t idleStateStart = 0;
 // Pin declarations
 const int MOTOR_STEP_PIN = 7;
 const int MOTOR_DIRECTION_PIN = 8;
-const int limitSwitchPin = 9;
+const int limitSwitchPin = 2;
 const uint8_t CSPin = 10;
 
 // Wire transmission stuff
@@ -78,7 +78,7 @@ byte* moveAccelPtr = (byte*)&moveAccel;
 void parsecommand(int numBytes) {
   // Get the command byte
   commandByte = Wire.read();
-  Serial.println(commandByte);
+  //Serial.println(commandByte);
   // Do a different command depending on what was sent
   switch (commandByte) {
     // Reset the arduino
@@ -141,10 +141,10 @@ void requesthandler() {
 */
 void setup() {
   // Serial debugging
-  Serial.begin(115200);
+  //Serial.begin(115200);
 
   // Stepper stuff
-  Serial.println("Initializing Stepper");
+  //Serial.println("Initializing Stepper");
   stepper.connectToPins(MOTOR_STEP_PIN, MOTOR_DIRECTION_PIN);
   stepper.setStepsPerRevolution(800);
   stepper.setAccelerationInRevolutionsPerSecondPerSecond(moveAccel);
@@ -152,7 +152,7 @@ void setup() {
 
   // Stepper driver
   // Start SPI
-  Serial.println("Setting up Stepper Driver");
+  //Serial.println("Setting up Stepper Driver");
   SPI.begin();
   myDriver.setChipSelectPin(CSPin);
   // Reset driver
@@ -163,11 +163,11 @@ void setup() {
   myDriver.setCurrentMilliamps36v4(idleCurrent);
   myDriver.setStepMode(HPSDStepMode::MicroStep4);
   // Enable driver
-  Serial.println("Enabling Stepper Driver");
+  //Serial.println("Enabling Stepper Driver");
   myDriver.enableDriver();
 
   // I2C communication
-  Serial.println("Starting Wire Communication");
+  //Serial.println("Starting Wire Communication");
   Wire.begin(9);
   Wire.setClock(400000);
   Wire.onReceive(parsecommand);
@@ -175,6 +175,8 @@ void setup() {
 }
 
 void loop() {
+
+  //Serial.print(digitalRead(limitSwitchPin));
   // Check the state
   switch (state) {
     // Idle state
@@ -203,12 +205,12 @@ void idlefun() {
   // If this is the first time in the state, start a timer for killing motor power
   if (prevState != state) {
     idleStateStart = millis();
-    Serial.println(idleStateStart);
+    //Serial.println("Idle");
   }
 
   // Check the timer and see if we need to kill power
   if ((millis() - idleStateStart > powerSaveTimeoutMillis) && !powerSave) {
-    Serial.println("Entering power save mode");
+    //Serial.println("Entering power save mode");
     powerSave = true;
     myDriver.setCurrentMilliamps36v4(idleCurrent);
   }
@@ -217,7 +219,7 @@ void idlefun() {
   if (moveRequested) {
     moveRequested = false;
     powerSave = false;
-    Serial.println("Upping Motor Current");
+    //Serial.println("Upping Motor Current");
     myDriver.setCurrentMilliamps36v4(fullCurrent);
     state = 1;
   }
@@ -226,7 +228,7 @@ void idlefun() {
   if (homeRequested) {
     homeRequested = false;
     powerSave = false;
-    Serial.println("Upping Motor Current");
+    //Serial.println("Upping Motor Current");
     myDriver.setCurrentMilliamps36v4(fullCurrent);
     state = 2;
   }
@@ -250,7 +252,7 @@ void movefun() {
 // Function homes the motor
 void homefun() {
   // Home command
-  stepper.moveToHomeInRevolutions(1, 3, 100, 9);
+  stepper.moveToHomeInRevolutions(1, 3, 100, limitSwitchPin);
   // Set to the correct position
   stepper.setCurrentPositionInRevolutions(homeSwitchPositionRev);
   // Send a flag, wait, and go straight to idle
@@ -266,7 +268,7 @@ void homefun() {
 // Function resets the arduino
 void resetcommand() {
   // Serial debugging
-  Serial.println("Reset Command Received");
+  //Serial.println("Reset Command Received");
   stopcommand();
   zerocommand();
 }
@@ -274,14 +276,14 @@ void resetcommand() {
 // Function zeros out the motor position
 void zerocommand() {
   // Serial debugging
-  Serial.println("Zero Command Received");
+  //Serial.println("Zero Command Received");
   stepper.setCurrentPositionInRevolutions(0);
 }
 
 // Function stops the motor
 void stopcommand() {
   // Serial debugging
-  Serial.println("Stop Command Received");
+  //Serial.println("Stop Command Received");
   state = 0;
   moveDone = true;
   moveRequested = false;
@@ -290,7 +292,7 @@ void stopcommand() {
 // Function starts a move
 void movecommand() {
   // Serial debugging
-  Serial.println("Move Command Received");
+  //Serial.println("Move Command Received");
   moveRequested = true;
   readmoveparams();
   moveDone = false;
@@ -299,7 +301,7 @@ void movecommand() {
 // Function starts a homing move
 void homecommand() {
   // Serial debugging
-  Serial.println("Home Move Command Received");
+  //Serial.println("Home Move Command Received");
   homeRequested = true;
   moveDone = false;  
 }

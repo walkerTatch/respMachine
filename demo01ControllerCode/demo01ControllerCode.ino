@@ -91,7 +91,7 @@ uint32_t blockingFunctionTimeoutMs = 30000;
 // Physical machine params (Units in revolutions or derivatives)
 float motorSpeedMax = 12;
 float membraneZeroPosition = 30;
-float membraneFillPosition = 10;
+float membraneFillPosition = 20;
 float membraneVacuumPosition = 0.25;
 float jogSpeed = 5;
 float jogAccel = 10;
